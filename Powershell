@@ -1,0 +1,143 @@
+This is the code you can run in Powershell to obtain the datafiles for the Metropolitan area (London) and it will delete the rest of the files that we do not need.
+
+Code To Remove Unnecessary Files
+
+$MainFolder = "Add path name" # the location of the folder you downloaded
+
+$Subfolders = Get-ChildItem -Path $MainFolder -Directory # accesses the subfolders in the main folder
+
+# Loop through each subfolder
+foreach ($Subfolder in $Subfolders) {
+    # Accessing all the files in each subfolder
+    Get-ChildItem -Path $Subfolder.FullName -Recurse -File | ForEach-Object {
+        # checking if the file name has the word 'metropolitan'
+        if ($_ -match "metropolitan") {
+            # if the file contains 'metropolitan', then we do nothing
+        } else {
+            # else we delete it
+            $_ | Remove-Item
+        }
+    }
+}
+
+
+You have to run it for all folders that you download so don’t forget to change main folder name
+
+
+Code for Combining All Files
+
+For one Folder
+
+$MainFolder = "Path to folder"
+$OutputFolder = "Path where you want to create output folder with output folder name"
+
+# to store files into the tree types of files
+$FilesByType = @{
+    "metropolitan-outcomes" = @()
+    "metropolitan-stop-and-search" = @()
+    "metropolitan-street" = @()
+}
+
+# accessing the subfolders within the main folder
+$Subfolders = Get-ChildItem -Path $MainFolder -Directory
+
+foreach ($Subfolder in $Subfolders) {
+    # all csvs from each subfolder
+    $Files = Get-ChildItem -Path $Subfolder.FullName -Filter "*.csv" -File
+
+    # looping through each file and adding them to their respective type list
+    foreach ($File in $Files) {
+        # determine the type of the file using string matching
+        if ($File.Name -match ".*-metropolitan-outcomes\..*") {
+            $FilesByType["metropolitan-outcomes"] += $File
+        }
+        elseif ($File.Name -match ".*-metropolitan-stop-and-search\..*") {
+            $FilesByType["metropolitan-stop-and-search"] += $File
+        }
+        elseif ($File.Name -match ".*-metropolitan-street\..*") {
+            $FilesByType["metropolitan-street"] += $File
+        }
+    }
+}
+
+# creates the output directory if it doesn't exist
+if (-not (Test-Path -Path $OutputFolder)) {
+    New-Item -Path $OutputFolder -ItemType Directory | Out-Null
+}
+
+# combines the csv files for each type in the list
+foreach ($Type in $FilesByType.Keys) {
+    $CombinedFiles = $FilesByType[$Type]
+    if ($CombinedFiles.Count -gt 0) {
+        # Appends into one file
+        $CombinedFileName = Join-Path -Path $OutputFolder -ChildPath "$Type.csv"
+        $CombinedContent = foreach ($File in $CombinedFiles) {
+            Import-Csv -Path $File.FullName
+        }
+        # saving combined csv
+        $CombinedContent | Export-Csv -Path $CombinedFileName -NoTypeInformation -Append
+    }
+}
+
+
+
+# Define main folders
+$MainFolders = @(folder 1 path, folder 2 path)
+
+# Output folder
+$OutputFolder = "C:\Users\hetvi\Downloads\CombinedFinal"
+
+
+$FilesByType = @{
+    "metropolitan-outcomes" = @()
+    "metropolitan-stop-and-search" = @()
+    "metropolitan-street" = @()
+}
+
+# looping through each main folder
+foreach ($MainFolder in $MainFolders) {
+    # getting all subfolders within the main folder
+    $Subfolders = Get-ChildItem -Path $MainFolder -Directory -Recurse
+
+    # looping through each subfolder
+    foreach ($Subfolder in $Subfolders) {
+        # getting csv files within the subfolder
+        $Files = Get-ChildItem -Path $Subfolder.FullName -Filter "*.csv" -File
+
+        # looping through each file
+        foreach ($File in $Files) {
+            # matches to type of file using string
+            if ($File.Name -match ".*-metropolitan-outcomes\..*") {
+                $FilesByType["metropolitan-outcomes"] += $File
+            }
+            elseif ($File.Name -match ".*-metropolitan-stop-and-search\..*") {
+                $FilesByType["metropolitan-stop-and-search"] += $File
+            }
+            elseif ($File.Name -match ".*-metropolitan-street\..*") {
+                $FilesByType["metropolitan-street"] += $File
+            }
+        }
+    }
+}
+
+# creates the output directory if it doesn't exist
+if (-not (Test-Path -Path $OutputFolder)) {
+    New-Item -Path $OutputFolder -ItemType Directory | Out-Null
+}
+
+# combines the csv files for each type in the list
+foreach ($Type in $FilesByType.Keys) {
+    $CombinedFiles = $FilesByType[$Type]
+    if ($CombinedFiles.Count -gt 0) {
+        # Appends into one file
+        $CombinedFileName = Join-Path -Path $OutputFolder -ChildPath "$Type.csv"
+        $CombinedContent = foreach ($File in $CombinedFiles) {
+            Import-Csv -Path $File.FullName
+        }
+        # saving combined csv
+        $CombinedContent | Export-Csv -Path $CombinedFileName -NoTypeInformation -Append
+    }
+}
+
+
+
