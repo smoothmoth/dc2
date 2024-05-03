@@ -5,9 +5,8 @@ import datetime
 import folium
 
 
-# folder_path = "C:/Users/hetvi/Downloads/CombinedFinal"
-
 #Combine CSV's
+# folder_path = "C:/Users/hetvi/Downloads/CombinedFinal"
 # df = pd.read_csv("C:/Users/hetvi/Downloads/Combined/metropolitan-outcomes.csv")
 # df2 = pd.read_csv("C:/Users/hetvi/Downloads/Combined1/metropolitan-outcomes1.csv")
 # df3 = pd.read_csv("C:/Users/hetvi/Downloads/Combined3/metropolitan-outcomes3.csv")
