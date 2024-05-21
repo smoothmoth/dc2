@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from typing import List
+from typing import List, Tuple
 from police_api import PoliceAPI
 import re
 
@@ -88,7 +88,7 @@ def add_neighbourhoods(df: pd.DataFrame) -> pd.DataFrame:
     cnt = 0
     uniq = df_temp["Cords"].unique()
     print(len(uniq))
-    print(len(df["LSOA"].unique()))
+    print(len(df["LSOA code"].unique()))
     for i in uniq:
         dct_index[i] = get_neighbour_id(i[0], i[1])
         # dct_name[i] = get_neighbour_name(i[0], i[1])
@@ -103,7 +103,58 @@ def add_neighbourhoods(df: pd.DataFrame) -> pd.DataFrame:
     df["Neighbourhood ID"] = df_temp["Neighbourhood ID"]
     # df["Neighbourhood name"] = df_temp["Neighbourhood name"]
 
+
     return df
+
+
+def add_wards(df: pd.DataFrame, path_to_PAS: str) -> pd.DataFrame:
+    """
+    Adds columns for ward name and id.
+    :param df: DataFrame on which to perform the operation
+    :return: Original dataframe with two additional columns: one for neighbourhood ID, one for neighbourhood name
+    """
+    pas_df_15_17 = pd.read_csv(path_to_PAS + "\PAS_ward_level_FY_15_17.csv").copy()
+    pas_df_17_18 = pd.read_csv(path_to_PAS + "\PAS_ward_level_FY_17_18.csv").copy()
+    pas_df_18_19 = pd.read_csv(path_to_PAS + "\PAS_ward_level_FY_18_19.csv").copy()
+    pas_df_19_20 = pd.read_csv(path_to_PAS + "\PAS_ward_level_FY_19_20.csv").copy()
+    pas_df_20_21 = pd.read_csv(path_to_PAS + "\PAS_ward_level_FY_20_21.csv").copy()
+
+    df_15_17 = df[(df["Month"] >="2015-04") & (df["Month"] <="2017-03")].copy()
+    df_17_18 = df[(df["Month"] >="2017-04") & (df["Month"] <="2018-03")].copy()
+    df_18_19 = df[(df["Month"] >="2018-04") & (df["Month"] <="2019-03")].copy()
+    df_19_20 = df[(df["Month"] >="2019-04") & (df["Month"] <="2020-03")].copy()
+    df_20_21 = df[(df["Month"] >="2020-04") & (df["Month"] <="2021-03")].copy()
+
+    pas_df_list = [pas_df_15_17, pas_df_17_18, pas_df_18_19, pas_df_19_20, pas_df_20_21]
+    df_list = [df_15_17, df_17_18, df_18_19, df_19_20, df_20_21]
+
+    for i in range(4):
+        dct_c = {}
+        dct_n = {}
+        d = df_list[i]
+        p = pas_df_list[i]
+        p_uniq = p.drop_duplicates(subset = ['SOA1', 'ward'])
+        for row in p_uniq[['SOA1', 'ward', 'ward_n']].iterrows():
+            r = row[1]['SOA1'].strip()
+            w = row[1]['ward'].strip()
+            n = row[1]['ward_n'].strip()
+            dct_c[r] = w
+            dct_n[r] = n
+        d['ward'] = d['LSOA code'].map(dct_c)
+        d['ward_name'] = d['LSOA code'].map(dct_n)
+    na = pd.Series(['Not Available']*len(df_20_21))
+    df_20_21['ward'] = na
+    df_20_21['ward_name'] = na
+
+    out_df =  pd.concat(df_list).copy()
+    out_df2 = out_df.dropna(subset=['ward'])
+
+    return out_df2
+
+
+def add_economic_variables(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    """
 
 
 def clean_police_uk_crime_datasets(df_street: pd.DataFrame, df_search: pd.DataFrame) -> List[pd.DataFrame]:
@@ -145,58 +196,51 @@ def clean_police_uk_crime_datasets(df_street: pd.DataFrame, df_search: pd.DataFr
     return [df_street_final, df_search_final]
 
 
-def prepare_police_uk_crime_datasets(df_street: pd.DataFrame, df_search: pd.DataFrame,
-                                     classify_row_counts: bool = True, aggregate_to_neighbourhood: bool = True) -> List[
-    pd.DataFrame]:
+def prepare_police_uk_crime_datasets(df_street: pd.DataFrame, df_search: pd.DataFrame, df_econ: pd.DataFrame,  path_to_pas_data: str) -> Tuple[ pd.DataFrame]:
     """
     Prepares the police.uk crime data (more specifically: street and stop_and_search data) for statistical analysis.
     :param df_street: DataFrame containing the streets data
     :param df_search: DataFrame containing the stop_and_search data
-    :param classify_row_counts: Whether to group some similar possible values together (e.g., grouping crimes per
-    severity, or searches per reason for searching)
-    :param aggregate_to_neighbourhood: Whether to aggregate data to neighbourhood level (True) or LSOA (False)
+    :param path_to_pas_data: Path top the folder containing all PAS tables
     :return: a list [df_street, df_search], each ready for use in statistical analysis
     """
 
     # Cleaning the data
     df_street_clean, df_search_clean = clean_police_uk_crime_datasets(df_street, df_search)
 
-    # Add "Neighbourhood" column based on Latitude and Longitude
-    df_street_1 = add_neighbourhoods(df_street_clean)
-    df_search_1 = add_neighbourhoods(df_search_clean)
+    # Add "wards" column based on Latitude and Longitude
+    df_street_1 = add_wards(df_street_clean, path_to_pas_data)
+    df_search_1 = add_wards(df_search_clean, path_to_pas_data)
 
     # Add "Borough" column based on LSOA
     df_street_2 = get_boroughs_from_LSOA(df_street_1)
     df_search_2 = get_boroughs_from_LSOA(df_search_1)
 
-    if not classify_row_counts and not aggregate_to_neighbourhood:
-        return [df_street_1, df_search_1]
 
-    if classify_row_counts and aggregate_to_neighbourhood:
-        # Make a one-hot-encoding for relevant categories
-        df_street_3 = one_hot_encode_categories(df_street_2, column_names=[
-            "Crime type", "Last outcome category"
-        ])
-        df_search_3 = one_hot_encode_categories(df_search_2, column_names=[
-            "Gender", "Age range", "Officer-defined ethnicity", "Legislation", "Outcome"
-        ])
-        print(f"Street data columns after encoding: {df_street_3.columns}")
-        print(f"Search data columns after encoding: {df_search_3.columns}")
+    # Make a one-hot-encoding for relevant categories
+    df_street_3 = one_hot_encode_categories(df_street_2, column_names=[
+        "Crime type", "Last outcome category"
+    ])
+    df_search_3 = one_hot_encode_categories(df_search_2, column_names=[
+        "Gender", "Age range", "Officer-defined ethnicity", "Legislation", "Outcome"
+    ])
+    print(f"Street data columns after encoding: {df_street_3.columns}")
+    print(f"Search data columns after encoding: {df_search_3.columns}")
 
-        # Classify "Reason for searching" into one of: Weapons; Drugs; Criminal based on Legislation column
+    # Classify "Reason for searching" into one of: Weapons; Drugs; Criminal based on Legislation column
 
-        # Classify "Crime type" based on perceived severity/ harm done
 
-        # Classify "If person should have been searched" based on outcome of search
+    # Classify "Crime type" based on perceived severity/ harm done
+
+    # Classify "If person should have been searched" based on outcome of search
 
 
 df_street = pd.read_csv("D:\DC2_Output\metropolitan-street-combined.csv", low_memory=False)
 df_search = pd.read_csv("D:\DC2_Output\metropolitan-stop-and-search.csv", low_memory=False)
 clean_street, clean_search = clean_police_uk_crime_datasets(df_street, df_search)
-print(add_neighbourhoods(clean_street)["Neighbourhood name"])
+# print(add_neighbourhoods(clean_street)["Neighbourhood name"])
+# print(df_street.columns)
+#clean_df = clean_police_uk_crime_datasets(df_street)
+wards = add_wards(clean_street,"D:\DC2_Output\pas_data_ward_level")
+print(wards)
 
-
-# df_test = pd.DataFrame({'a': [12,13,27,9,12], 'b': [0,1,1,0,0]})
-# df_test["Cords"] = df_test[['a', 'b']].apply(tuple, axis=1)
-# print(df_test)
-# print(df_test["Cords"].unique())
