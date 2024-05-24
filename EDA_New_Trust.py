@@ -18,7 +18,7 @@ def process_csv(input_file, area):
 
     df[area] = df[area].str.strip()
 
-    df = df[df[area] != '#N/A']
+    df = df[df[area] != 'NA']
     df = df.dropna(subset=[area])
 
     return df
@@ -53,5 +53,5 @@ ward = 'ward_n'
 borough = 'C2'
 borough_2021 = 'Borough'
 neighbourhood = 'BOROUGHNEIGHBOURHOOD'
-avg_mps_over_time_spans = average_mps_over_time_spans(csv_files, ward)
+avg_mps_over_time_spans = average_mps_over_time_spans(csv_files, neighbourhood)
 print(avg_mps_over_time_spans)
