@@ -1,8 +1,10 @@
 import pandas as pd
 import numpy as np
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from police_api import PoliceAPI
 import re
+import geopandas as gpd
+import json
 
 
 def one_hot_encode_categories(df: pd.DataFrame, column_names: List[str]) -> pd.DataFrame:  # Code adapted from what
@@ -107,7 +109,7 @@ def add_neighbourhoods(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def add_wards(df: pd.DataFrame, path_to_PAS: str) -> pd.DataFrame:
+def add_wards_old(df: pd.DataFrame, path_to_PAS: str) -> pd.DataFrame:
     """
     Adds columns for ward name and id.
     :param df: DataFrame on which to perform the operation
@@ -152,12 +154,69 @@ def add_wards(df: pd.DataFrame, path_to_PAS: str) -> pd.DataFrame:
     return out_df2
 
 
-def add_economic_variables(df: pd.DataFrame) -> pd.DataFrame:
+def add_wards(df: pd.DataFrame, path_to_ward_geojson: str) -> pd.DataFrame:
     """
+    Adds columns for ward name and id.
+    :param df: DataFrame on which to perform the operation
+    :return: Original dataframe with two additional columns: one for ward ID, one for ward name
     """
+    with open(path_to_ward_geojson) as f:
+        geo = json.load(f)
+        geodf = gpd.GeoDataFrame.from_features(geo)
+    gdf_df = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.Longitude, df.Latitude), crs="EPSG:4326")
+    sj = gpd.sjoin(left_df=gdf_df, right_df=geodf[["name", "code","geometry"]], how="left", predicate="intersects")
+    sj['name'] = sj['name'].str.strip()
+    sj_2 = sj.drop(columns=["index_right"]).copy()
+    sj_3 = sj_2.dropna(subset=["name", "code"]).copy()
+    sj_out = sj_3.rename(columns = {'name':'Ward name', 'code': 'Ward code'}).copy()
+
+    return sj_out
 
 
-def clean_police_uk_crime_datasets(df_street: pd.DataFrame, df_search: pd.DataFrame) -> List[pd.DataFrame]:
+def add_boroughs(df: pd.DataFrame, path_to_borough_geojson: str) -> pd.DataFrame:
+    """
+    Adds columns for borough name and id.
+    :param df: DataFrame on which to perform the operation
+    :return: Original dataframe with two additional columns: one for borough ID, one for borough name
+    """
+    with open(path_to_borough_geojson) as f:
+        geo = json.load(f)
+        geodf = gpd.GeoDataFrame.from_features(geo)
+    gdf_df = gpd.GeoDataFrame(df, geometry=gpd.points_from_xy(df.Longitude, df.Latitude), crs="EPSG:4326")
+    sj = gpd.sjoin(left_df=gdf_df, right_df=geodf[["name", "CODE","geometry"]], how="left", predicate="intersects")
+    sj['name'] = sj['name'].str.strip()
+    sj_2 = sj.drop(columns=["index_right"]).copy()
+    sj_3 = sj_2.dropna(subset=["name", "CODE"]).copy()
+    sj_out = sj_3.rename(columns ={'name':'Borough name', 'CODE': 'Borough code'}).copy()
+
+    return sj_out 
+
+
+def add_other_datasets(prepared_street: pd.DataFrame, path_to_econ: str, path_to_jobs: str) -> pd.DataFrame:
+    """
+    Adds information on economic factors (average borough pay and job density) to a DataFrame (should be a prepared df_street)
+    :param prepared_street: Preprocessed df_street
+    :param path_to_econ: path to the economic dataset
+    :param path_to_jobs: path to the job density dataset
+    :returns: A modified original DataFrame, now with average pay and job density per borough
+    """
+    prepared_street = prepared_street.replace({'Borough name':{'City of Westminster': 'Westminster'}})
+
+    data_econ = pd.read_excel(path_to_econ, sheet_name='Total, Hourly')
+    data_econ = data_econ.iloc[3:35,[1,2,4,6,8,10,12,14,16,18,20,22,24,26,28,30,32,34,36,38,40,42]].reset_index().drop(columns='index').copy()
+    data_econ = data_econ.melt(id_vars=["Area"], var_name='Year', value_name='Pay').copy()
+
+    data_jobs = pd.read_excel(path_to_jobs, sheet_name='Jobs Density')
+    data_jobs = data_jobs.iloc[2:34, 1:].reset_index().drop(columns='index').copy()
+    data_jobs = data_jobs.melt(id_vars=["Area"], var_name='Year', value_name='jobDensity').copy()
+
+    merged = pd.merge(prepared_street, data_econ, how='left', left_on=["Year","Borough name"], right_on=["Year", "Area"]).drop(columns='Area').copy()
+    merged_out = pd.merge(merged , data_jobs, how='left', left_on=["Year","Borough name"], right_on=["Year", "Area"]).drop(columns='Area').copy()
+
+    return merged_out
+    
+
+def clean_police_uk_crime_datasets(df_street: pd.DataFrame, df_search: pd.DataFrame) -> Tuple[pd.DataFrame]:
     """
     Cleans the police.uk crime data (more specifically: street and stop_and_search data)
     :param df_street: DataFrame containing the streets data
@@ -174,10 +233,14 @@ def clean_police_uk_crime_datasets(df_street: pd.DataFrame, df_search: pd.DataFr
     df_street_2 = df_street_1.drop_duplicates().copy()
     df_search_2 = df_search_1.drop_duplicates().copy()
 
-    # Recoding "Month" into pd.Period data type
-    df_street_2["Month"] = pd.to_datetime(df_street_2['Month'], format='%Y-%m').dt.to_period("m")
-    df_search_2["Month"] = pd.to_datetime(df_search_2['Date'], format='%Y-%m', exact=False).dt.to_period("m")
+    # Recoding "Month" into pd.Period data type; adding "Year" column
+    df_street_2["Year"] = pd.to_datetime(df_street_2['Month'], format='%Y-%m').dt.to_period("Y")
+    df_search_2["Year"] = pd.to_datetime(df_search_2['Date'], format='%Y-%m', exact=False).dt.to_period("Y")
+    df_street_2["Month"] = pd.to_datetime(df_street_2['Month'], format='%Y-%m').dt.to_period("M")
+    df_search_2["Month"] = pd.to_datetime(df_search_2['Date'], format='%Y-%m', exact=False).dt.to_period("M")
     df_search_2 = df_search_2.drop("Date", axis=1)
+
+    
 
     # Remove rows with null values in some relevant columns
     df_street_3 = df_street_2.dropna(subset=["Latitude"]).copy()
@@ -193,28 +256,38 @@ def clean_police_uk_crime_datasets(df_street: pd.DataFrame, df_search: pd.DataFr
     df_street_final = df_street_3.reset_index().drop('index', axis=1)
     df_search_final = df_search_3.reset_index().drop('index', axis=1)
 
-    return [df_street_final, df_search_final]
+    return df_street_final, df_search_final
 
 
-def prepare_police_uk_crime_datasets(df_street: pd.DataFrame, df_search: pd.DataFrame, df_econ: pd.DataFrame,  path_to_pas_data: str) -> Tuple[ pd.DataFrame]:
+def prepare_police_uk_crime_datasets(
+        df_street: pd.DataFrame, 
+        df_search: pd.DataFrame,   
+        path_to_ward_geojson: str,
+        path_to_borough_geojson: str,
+        classify_search_dummies: bool = True,
+        classify_street_dummies: bool = True,
+        ) -> Tuple[pd.DataFrame]:
     """
     Prepares the police.uk crime data (more specifically: street and stop_and_search data) for statistical analysis.
     :param df_street: DataFrame containing the streets data
     :param df_search: DataFrame containing the stop_and_search data
     :param path_to_pas_data: Path top the folder containing all PAS tables
-    :return: a list [df_street, df_search], each ready for use in statistical analysis
+    :return: a Dictionary of 8 dataframes: one per a choice between: street/search data; aggregation by year or month; aggregation by ward or borough 
     """
 
     # Cleaning the data
     df_street_clean, df_search_clean = clean_police_uk_crime_datasets(df_street, df_search)
+    print("DATA CLEANED")
 
     # Add "wards" column based on Latitude and Longitude
-    df_street_1 = add_wards(df_street_clean, path_to_pas_data)
-    df_search_1 = add_wards(df_search_clean, path_to_pas_data)
+    df_street_1 = add_wards(df_street_clean, path_to_ward_geojson);
+    df_search_1 = add_wards(df_search_clean, path_to_ward_geojson);
+    print("WARDS ADDED")
 
-    # Add "Borough" column based on LSOA
-    df_street_2 = get_boroughs_from_LSOA(df_street_1)
-    df_search_2 = get_boroughs_from_LSOA(df_search_1)
+    # Add "Borough" column based on Latitude and Longitude
+    df_street_2 = add_boroughs(df_street_1, path_to_borough_geojson);
+    df_search_2 = add_boroughs(df_search_1, path_to_borough_geojson);
+    print("BOROUGHS ADDED")
 
 
     # Make a one-hot-encoding for relevant categories
@@ -224,23 +297,204 @@ def prepare_police_uk_crime_datasets(df_street: pd.DataFrame, df_search: pd.Data
     df_search_3 = one_hot_encode_categories(df_search_2, column_names=[
         "Gender", "Age range", "Officer-defined ethnicity", "Legislation", "Outcome"
     ])
-    print(f"Street data columns after encoding: {df_street_3.columns}")
-    print(f"Search data columns after encoding: {df_search_3.columns}")
+    
+    df_out_search = df_search_3.copy()
+    df_out_street = df_street_3.copy()
 
-    # Classify "Reason for searching" into one of: Weapons; Drugs; Criminal based on Legislation column
+    if classify_search_dummies:
+        # Classify "Reason for searching" into one of: Weapons; Drugs; Other based on Legislation column
+        df_search_cls = aggregate_column_counts(df_out_search, [
+            'Police and Criminal Evidence Act 1984 (section 1)',
+            'Criminal Justice Act 1988 (section 139B)',
+            'Criminal Justice and Public Order Act 1994 (section 60)'
+            ], 'searchReasonCriminal').copy()
+        
+        df_search_cls_2 = df_search_cls.copy()
+        df_search_cls_2['searchReasonDrugs'] = df_search_cls['Firearms Act 1968 (section 47)']
+        df_search_cls_2['searchReasonFirearms'] = df_search_cls['Misuse of Drugs Act 1971 (section 23)']
+        
+        # Classify "If person should have been searched" based on outcome of search
+        df_search_cls_3 = aggregate_column_counts(df_search_cls_2, [
+            'Nothing found - no further action', 
+            'A no further action disposal'
+            ], 'outcomeUnsuitableForSearch').copy()
+        df_search_cls_4 = aggregate_column_counts(df_search_cls_3, [
+            'Offender given drugs possession warning', 'Suspect arrested',
+            'Local resolution', 'Offender given penalty notice',
+            'Suspect summonsed to court', 'Offender cautioned',
+            'Article found - Detailed outcome unavailable','Arrest',
+            'Khat or Cannabis warning', 'Community resolution',
+            'Summons / charged by post', 'Penalty Notice for Disorder',
+            'Caution (simple or conditional)'
+        ], 'outcomeSuitableForSearch').copy()
+
+        df_out_search = df_search_cls_4.copy()
+        print(f"List of new search columns: {df_out_search.columns}")
 
 
-    # Classify "Crime type" based on perceived severity/ harm done
+    if classify_street_dummies:
+        # Classify "Crime type" based on perceived severity/ harm done
+        df_street_cls = aggregate_column_counts(df_out_street, [
+            'Vehicle crime', 
+            'Theft from the person', 
+            'Shoplifting',
+            'Bicycle theft',
+            'Burglary',
+            'Robbery',
+            'Other theft'
+        ], 'crimeTheft')
+        df_street_cls_2 = aggregate_column_counts(df_street_cls, [
+            'Violence and sexual offences',
+            'Violent crime',
+        ], 'crimeViolence')
+        df_street_cls_3 = aggregate_column_counts(df_street_cls_2, [
+            'Anti-social behaviour',
+            'Criminal damage and arson',
+            'Public disorder and weapons',
+            'Public order',
+            'Possession of weapons',
+            'Drugs'
+        ], 'crimePublicDisorder')
 
-    # Classify "If person should have been searched" based on outcome of search
+        df_street_cls_3['crimeOther'] = df_street_cls_3['Other crime']
+
+        # Classify "Last outcome category"
+        df_street_cls_4 = aggregate_column_counts(df_street_cls_3,[
+            'Court result unavailable', 
+            'Court case unable to proceed', 
+            'Awaiting court outcome', 
+            'Formal action is not in the public interest', 
+            'Unable to prosecute suspect', 
+            'Defendant sent to Crown Court'
+        ], "resolutionNo").copy()
+        df_street_cls_5 = aggregate_column_counts(df_street_cls_4,[
+            'Offender sent to prison',
+            'Offender given community sentence', 
+            'Local resolution',
+            'Offender given penalty notice',
+            'Offender given a drugs possession warning',
+            'Offender given conditional discharge',
+            'Defendant found not guilty', 
+            'Offender given a caution',
+            'Offender fined', 
+            'Offender given suspended prison sentence',
+            'Offender deprived of property',
+            'Offender otherwise dealt with',
+            'Offender ordered to pay compensation',
+            'Suspect charged as part of another case',
+            'Offender given absolute discharge',
+        ], "resolutionYes").copy()
+
+       
+
+        df_out_street = df_street_cls_5.copy()
+        print(f"List of new street columns: {df_out_street.columns}")
+    
+    
+
+    return df_out_street, df_out_search
 
 
-df_street = pd.read_csv("D:\DC2_Output\metropolitan-street-combined.csv", low_memory=False)
-df_search = pd.read_csv("D:\DC2_Output\metropolitan-stop-and-search.csv", low_memory=False)
-clean_street, clean_search = clean_police_uk_crime_datasets(df_street, df_search)
-# print(add_neighbourhoods(clean_street)["Neighbourhood name"])
-# print(df_street.columns)
-#clean_df = clean_police_uk_crime_datasets(df_street)
-wards = add_wards(clean_street,"D:\DC2_Output\pas_data_ward_level")
-print(wards)
+
+def aggregate_police_uk_data(
+        prepared_street: pd.DataFrame, 
+        prepared_search: pd.DataFrame,
+        path_to_econ: pd.DataFrame,
+        path_to_jobs: pd.DataFrame
+        ) -> Dict[str, pd.DataFrame]:
+    """
+    Aggregates data for analysis.
+    :param prepared street: a DataFrame of crime data that was preprocessed by prepare_police_uk_crime_datasets
+    :param prepared search; a DataFrame of search data prepare_police_uk_crime_datasets
+    :param path_to_econ: path to the economic dataset
+    :param path_to_jobs: path to the job density dataset
+    :returns: A dictionary containing DataFrames with different levels of data aggregation
+    """
+    outdct = {}
+
+    # Modify data to include additional variables and for consistency
+    prepared_street = add_other_datasets(prepared_street, path_to_econ, path_to_jobs).copy()
+    prepared_search = prepared_search.replace({'Borough name':{'City of Westminster': 'Westminster'}}).copy()
+
+    # Create aggregation mapper for street data
+    street_agg_mapper = {}
+    for column_name in prepared_street.columns:
+        street_agg_mapper[f"{column_name}"] = ["sum"]
+    for not_needed in ['Crime ID', 'Month', 'Longitude', 'Latitude', 'Location', 'LSOA code',
+       'LSOA name', 'geometry', 'Ward name', 'Ward code','Borough name', 'Year',
+       'Borough code']:
+        del street_agg_mapper[not_needed]
+    street_agg_mapper['Pay'] = ['first']
+    street_agg_mapper['jobDensity'] = ['first']
+
+    # Create the dataframes for street data
+    df1 = prepared_street.groupby(['Year', "Borough name"]).agg(street_agg_mapper).reset_index()
+    df1.columns = [col_name[0] for col_name in df1.columns]
+    outdct['street_year_borough'] = df1.copy()
+
+    street_agg_mapper['Year'] = ['first']
+    df2 = prepared_street.groupby(['Month', "Borough name"]).agg(street_agg_mapper).reset_index()
+    df2.columns = [col_name[0] for col_name in df2.columns]
+    outdct['street_month_borough'] = df2.copy()
+
+    del street_agg_mapper['Year']
+    street_agg_mapper['Borough name'] = ['first']
+    df3 = prepared_street.groupby(['Year', "Ward name"]).agg(street_agg_mapper).reset_index()
+    df3.columns = [col_name[0] for col_name in df3.columns]
+    outdct['street_year_ward'] = df3.copy()
+    
+    street_agg_mapper['Year'] = ['first']
+    df4 = prepared_street.groupby(['Month', "Ward name"]).agg(street_agg_mapper).reset_index()
+    df4.columns = [col_name[0] for col_name in df4.columns]
+    outdct['street_month_ward'] = df4.copy()
+
+    # Create aggregation mapper for search data
+    search_agg_mapper = {}
+    for column_name in prepared_search.columns:
+        search_agg_mapper[f"{column_name}"] = ["sum"]
+    for not_needed in ['Type', 'Latitude', 'Longitude', 'Month', 'geometry',
+       'Ward name', 'Ward code', 'Borough code','Borough name', 'Year']:
+        del search_agg_mapper[not_needed]
+
+    # Create the dataframes for search data
+
+    df5 = prepared_search.groupby(['Year', "Borough name"]).agg(search_agg_mapper).reset_index()
+    df5.columns = [col_name[0] for col_name in df5.columns]
+    outdct['search_year_borough'] = df5.copy()
+
+    search_agg_mapper['Year'] = ['first']
+    df6 = prepared_search.groupby(['Month', "Borough name"]).agg(search_agg_mapper).reset_index()
+    df6.columns = [col_name[0] for col_name in df6.columns]
+    outdct['search_month_borough'] = df6.copy()
+
+    del search_agg_mapper['Year']
+    search_agg_mapper['Borough name'] = ['first']
+    df7 = prepared_search.groupby(['Year', "Ward name"]).agg(search_agg_mapper).reset_index()
+    df7.columns = [col_name[0] for col_name in df7.columns]
+    outdct['search_year_ward'] = df7.copy()
+    
+    search_agg_mapper['Year'] = ['first']
+    df8 = prepared_search.groupby(['Month', "Ward name"]).agg(search_agg_mapper).reset_index()
+    df8.columns = [col_name[0] for col_name in df8.columns]
+    outdct['search_month_ward'] = df8.copy()
+
+    return outdct  
+    
+
+
+def save_aggregated_data_to_csv(
+        prepared_street: pd.DataFrame, 
+        prepared_search: pd.DataFrame,
+        path_to_econ: pd.DataFrame,
+        path_to_jobs: pd.DataFrame) -> None:
+    """
+    Saves the aggregated data to csv files (8 files, one per level of aggregation)
+    :param prepared street: a DataFrame of crime data that was preprocessed by prepare_police_uk_crime_datasets
+    :param prepared search; a DataFrame of search data prepare_police_uk_crime_datasets
+    :param path_to_econ: path to the economic dataset
+    :param path_to_jobs: path to the job density dataset
+    """
+    dct: Dict = aggregate_police_uk_data(prepared_street, prepared_search, path_to_econ, path_to_jobs)
+    for key, value in dct.items():
+        value.to_csv(f"{key}.csv")
 
