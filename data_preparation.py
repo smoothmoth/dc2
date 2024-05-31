@@ -498,3 +498,236 @@ def save_aggregated_data_to_csv(
     for key, value in dct.items():
         value.to_csv(f"{key}.csv")
 
+
+
+def further_clean_PAS(df_PAS: pd.DataFrame) -> pd.DataFrame:
+    """
+    Further cleans tha joined PAS dataset
+    """
+
+    # remove whitespaces from string entries
+    for column in ['ward', 'ward_n', 'ward_unique','SOA1','SOA2','BOROUGHNEIGHBOURHOOD','quarter','C2']:
+        df_PAS[column] = df_PAS[column].str.strip()
+    
+    # recode week into pd.Period
+    df_PAS['Month'] = (df_PAS['MONTH'].str.split().str[1] + ' ' + df_PAS['MONTH'].str.split().str[2]).str.strip("()")
+    df_PAS.drop(columns=['MONTH'])
+    df_PAS['Year'] = pd.to_datetime(df_PAS['Month'], format='%b %Y').dt.to_period("Y")
+    df_PAS['Month'] = pd.to_datetime(df_PAS['Month'], format='%b %Y').dt.to_period("M")
+
+    # recode question variables into numbers
+
+    # prepare mapping dictionary per question
+    question_mappers_dct = {}
+    question_mappers_dct['Q1'] = {
+        '5 years but less than 10 years': 7.5,
+        '30 years or more': 35,
+        '2 years but less than 3 years': 2.5,
+        '12 months but less than 2 years': 1.5,
+        'Less than 12 months': 0.5,
+        '20 years but less than 30 years': 25,
+        '3 years but less than 5 years': 4,
+        '10 years but less than 20 years':15
+    }
+    question_mappers_dct['Q13'] = {
+        'Not very worried': 2,
+        'Fairly worried': 3,
+        'Not at all worried': 1,
+        'Very worried': 4,
+    }
+    for q in ['Q60', 'Q61']:
+        question_mappers_dct[q] = {
+            'Good': 4,
+            'Excellent': 5,
+            'Fair': 3,
+            'Very poor': 1, 
+            'Poor': 2,
+        }
+    
+    for q in ['Q62A', 'Q62C', 'Q62F', 'Q62TG', 'NQ135BD']:
+        question_mappers_dct[q] = {
+            'Tend to agree': 4,
+            'Strongly agree': 5,
+            'Tend to disagree': 2,
+            'Neither agree nor disagree': 3,
+            'Strongly disagree': 1
+        }
+    
+    question_mappers_dct['NQ135BH'] = {
+        'Tend to agree': 4,
+        'Strongly agree': 5,
+        'Tend to disagree': 2,
+        'Neither agree nor disagree': 3,
+        'Strongly disagree': 1,
+        'Not Asked': np.nan,
+        "Don't know": np.nan,
+        'Refused': np.nan
+        }
+    
+    question_mappers_dct['A121'] = {
+        'Fairly confident':3,
+        'Very confident': 4,
+        'Not very confident': 2,
+        'Not at all confident': 1,
+    }
+
+    for q in ['Q131', 'Q133']:
+        question_mappers_dct[q] = {
+        'Fairly well informed': 2, 
+        'Not at all informed': 1, 
+        'Very well informed': 3,
+        }
+    print(question_mappers_dct)
+
+    for column in question_mappers_dct:
+        df_PAS[column] = df_PAS[column].map(question_mappers_dct[column])
+
+    df_out = df_PAS[['ward','ward_n', 'C2','Month', 'Year', 'Q1', 'Q13', 'Q60', 'Q61', 'Q62A', 'Q62C', 'Q62F', 'Q62TG', 'A121',
+       'Q131', 'Q133', 'NQ135BD', 'NQ135BH']]
+
+
+    # print(df_out[['Ward name', 'Q1', 'Q13', 'Q60', 'Q61', 'Q62A', 'Q62C', 'Q62F', 
+    # 'Q62TG', 'A121', 'Q131', 'Q133', 'NQ135BD', 'NQ135BH']].groupby('Ward name').mean())
+    
+    for q in ['Q1', 'Q13', 'Q60', 'Q61', 'Q62A', 'Q62C', 'Q62F', 'Q62TG', 'A121',
+       'Q131', 'Q133', 'NQ135BD', 'NQ135BH']:
+        df_out[q] = df_out[["ward_n", q]].groupby("ward_n").transform(lambda x: x.fillna(x.mean()))
+
+    weights = {
+        'Q60': 0.2,
+        'Q62C': 0.2,
+        'Q61': 0.1,
+        'Q62A': 0.1,
+        'Q62F': 0.1,
+        'Q62TG': 0.1,
+        'NQ135BH': 0.1,
+        'Q131': 0.05,
+        'Q133': 0.05
+    }
+
+    def calculate_confidence(row): # Taken from Nabil's code
+        total_weight = 0
+        weighted_sum = 0
+        for column, weight in weights.items():
+            if pd.notnull(row[column]):
+                weighted_sum += row[column] * weight
+                total_weight += weight
+        if total_weight == 0:
+            return np.nan
+        return weighted_sum / total_weight
+
+    df_out['Confidence'] = df_out.apply(calculate_confidence, axis=1)
+
+    df_out = df_out.rename(columns=
+        {
+            'C2':'Borough name', 
+            'ward_n': 'Ward name', 
+            'ward': 'Ward code',
+            'Q1': 'qLivedInAreaForYears', 
+            'Q13':'qWorriedAboutCrimeInArea', 
+            'Q60':'qGoodJobLocal', 
+            'Q61': 'qGoodJobLondon', 
+            'Q62A': 'qReliedOnToBeThere', 
+            'Q62C':'qTreatEveryoneFairly', 
+            'Q62F': 'qDealWithWhatMattersToTheCommunity',
+            'Q62TG': 'qListenToConcerns', 
+            'A121': 'qConfidentThatStopAndSearchFair', 
+            'Q131': 'qInformedLocal', 
+            'Q133':'qInformedLondon', 
+            'NQ135BD': 'Trust', 
+            'NQ135BH': 'qPoliceHeldAccountable'
+            }
+    )
+
+    return df_out
+
+
+
+def aggregate_PAS_data(clean_PAS: pd.DataFrame) -> Dict['str', pd.DataFrame]:
+    """
+    Aggregates the PAS data.
+    """
+    outdct = {}
+
+    # Define the mapper
+    mapper = {}
+    for q in [
+        'qLivedInAreaForYears',
+        'qWorriedAboutCrimeInArea',
+        'qGoodJobLocal',
+        'qGoodJobLondon',
+        'qReliedOnToBeThere',
+        'qTreatEveryoneFairly',
+        'qDealWithWhatMattersToTheCommunity',
+        'qListenToConcerns',
+        'qConfidentThatStopAndSearchFair',
+        'qInformedLocal',
+        'qInformedLondon',
+        'Trust',
+        'qPoliceHeldAccountable',
+        'Confidence']:
+        mapper[q] = ['mean']
+
+
+    df1 = clean_PAS.groupby(['Year', "Borough name"]).agg(mapper).reset_index()
+    df1.columns = [col_name[0] for col_name in df1.columns]
+    outdct['PAS_year_borough'] = df1.copy()
+
+    mapper['Year'] = ['first']
+    df2 = clean_PAS.groupby(['Month', "Borough name"]).agg(mapper).reset_index()
+    df2.columns = [col_name[0] for col_name in df2.columns]
+    outdct['PAS_month_borough'] = df2.copy()
+
+    del mapper['Year']
+    mapper['Borough name'] = ['first']
+    df3 = clean_PAS.groupby(['Year', "Ward name"]).agg(mapper).reset_index()
+    df3.columns = [col_name[0] for col_name in df3.columns]
+    outdct['PAS_year_ward'] = df3.copy()
+    
+    mapper['Year'] = ['first']
+    df4 = clean_PAS.groupby(['Month', "Ward name"]).agg(mapper).reset_index()
+    df4.columns = [col_name[0] for col_name in df4.columns]
+    outdct['PAS_month_ward'] = df4.copy()
+
+    return outdct
+
+
+
+def join_data_month_ward(
+    aggregated_street: pd.DataFrame, 
+    aggregated_search: pd.DataFrame,
+    aggregated_PAS: pd.DataFrame,
+    ) -> pd.DataFrame:
+    """
+    Joins the prepared datasets
+    """
+    merged = pd.merge(
+        aggregated_PAS, 
+        aggregated_street, 
+        how='left', 
+        left_on=['Month', 'Ward name'], 
+        right_on=['Month', 'Ward name']
+        ).copy()
+    merged_out = pd.merge(
+        merged, 
+        aggregated_search, 
+        how='left', 
+        left_on=['Month', 'Ward name'], 
+        right_on=['Month', 'Ward name']
+        ).copy()
+    # merged_out = merged_out.dropna().reset_index().copy()
+
+    return merged_out
+
+
+   
+# PAS = pd.read_csv('PAS_month_ward.csv')
+# street = pd.read_csv('street_month_ward.csv')
+# search = pd.read_csv('search_month_ward.csv')
+
+# aggregated_PAS = aggregate_PAS_data(clean_PAS=clean_PAS)
+# for key, value in aggregated_PAS.items():
+#     value.to_csv(f"{key}.csv")
+
+# x = join_data_month_ward(street, search, PAS)
+# x.to_csv('aggregation_attempt.csv')
