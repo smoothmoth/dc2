@@ -500,13 +500,14 @@ def save_aggregated_data_to_csv(
 
 
 
-def further_clean_PAS(df_PAS: pd.DataFrame) -> pd.DataFrame:
+def further_clean_PAS(df_PAS: pd.DataFrame, recode: bool = True) -> pd.DataFrame:
     """
     Further cleans tha joined PAS dataset
+    :param recode: whether to recode questions into numbers or not
     """
 
     # remove whitespaces from string entries
-    for column in ['ward', 'ward_n', 'ward_unique','SOA1','SOA2','BOROUGHNEIGHBOURHOOD','quarter','C2']:
+    for column in ['ward_n','C2']:
         df_PAS[column] = df_PAS[column].str.strip()
     
     # recode week into pd.Period
@@ -515,114 +516,111 @@ def further_clean_PAS(df_PAS: pd.DataFrame) -> pd.DataFrame:
     df_PAS['Year'] = pd.to_datetime(df_PAS['Month'], format='%b %Y').dt.to_period("Y")
     df_PAS['Month'] = pd.to_datetime(df_PAS['Month'], format='%b %Y').dt.to_period("M")
 
-    # recode question variables into numbers
+    if recode:
+        # recode question variables into numbers
 
-    # prepare mapping dictionary per question
-    question_mappers_dct = {}
-    question_mappers_dct['Q1'] = {
-        '5 years but less than 10 years': 7.5,
-        '30 years or more': 35,
-        '2 years but less than 3 years': 2.5,
-        '12 months but less than 2 years': 1.5,
-        'Less than 12 months': 0.5,
-        '20 years but less than 30 years': 25,
-        '3 years but less than 5 years': 4,
-        '10 years but less than 20 years':15
-    }
-    question_mappers_dct['Q13'] = {
-        'Not very worried': 2,
-        'Fairly worried': 3,
-        'Not at all worried': 1,
-        'Very worried': 4,
-    }
-    for q in ['Q60', 'Q61']:
-        question_mappers_dct[q] = {
-            'Good': 4,
-            'Excellent': 5,
-            'Fair': 3,
-            'Very poor': 1, 
-            'Poor': 2,
+        # prepare mapping dictionary per question
+        question_mappers_dct = {}
+        question_mappers_dct['Q1'] = {
+            '5 years but less than 10 years': 7.5,
+            '30 years or more': 35,
+            '2 years but less than 3 years': 2.5,
+            '12 months but less than 2 years': 1.5,
+            'Less than 12 months': 0.5,
+            '20 years but less than 30 years': 25,
+            '3 years but less than 5 years': 4,
+            '10 years but less than 20 years':15
         }
-    
-    for q in ['Q62A', 'Q62C', 'Q62F', 'Q62TG', 'NQ135BD']:
-        question_mappers_dct[q] = {
+        question_mappers_dct['Q13'] = {
+            'Not very worried': 2,
+            'Fairly worried': 3,
+            'Not at all worried': 1,
+            'Very worried': 4,
+        }
+        for q in ['Q60', 'Q61']:
+            question_mappers_dct[q] = {
+                'Good': 4,
+                'Excellent': 5,
+                'Fair': 3,
+                'Very poor': 1, 
+                'Poor': 2,
+            }
+        
+        for q in ['Q62A', 'Q62C', 'Q62F', 'Q62TG', 'NQ135BD']:
+            question_mappers_dct[q] = {
+                'Tend to agree': 4,
+                'Strongly agree': 5,
+                'Tend to disagree': 2,
+                'Neither agree nor disagree': 3,
+                'Strongly disagree': 1
+            }
+        
+        question_mappers_dct['NQ135BH'] = {
             'Tend to agree': 4,
             'Strongly agree': 5,
             'Tend to disagree': 2,
             'Neither agree nor disagree': 3,
-            'Strongly disagree': 1
+            'Strongly disagree': 1,
+            'Not Asked': np.nan,
+            "Don't know": np.nan,
+            'Refused': np.nan
+            }
+        
+        question_mappers_dct['A121'] = {
+            'Fairly confident':3,
+            'Very confident': 4,
+            'Not very confident': 2,
+            'Not at all confident': 1,
         }
-    
-    question_mappers_dct['NQ135BH'] = {
-        'Tend to agree': 4,
-        'Strongly agree': 5,
-        'Tend to disagree': 2,
-        'Neither agree nor disagree': 3,
-        'Strongly disagree': 1,
-        'Not Asked': np.nan,
-        "Don't know": np.nan,
-        'Refused': np.nan
-        }
-    
-    question_mappers_dct['A121'] = {
-        'Fairly confident':3,
-        'Very confident': 4,
-        'Not very confident': 2,
-        'Not at all confident': 1,
-    }
 
-    for q in ['Q131', 'Q133']:
-        question_mappers_dct[q] = {
-        'Fairly well informed': 2, 
-        'Not at all informed': 1, 
-        'Very well informed': 3,
-        }
-    print(question_mappers_dct)
+        for q in ['Q131', 'Q133']:
+            question_mappers_dct[q] = {
+            'Fairly well informed': 2, 
+            'Not at all informed': 1, 
+            'Very well informed': 3,
+            }
 
-    for column in question_mappers_dct:
-        df_PAS[column] = df_PAS[column].map(question_mappers_dct[column])
+        for column in question_mappers_dct:
+            df_PAS[column] = df_PAS[column].map(question_mappers_dct[column])
 
-    df_out = df_PAS[['ward','ward_n', 'C2','Month', 'Year', 'Q1', 'Q13', 'Q60', 'Q61', 'Q62A', 'Q62C', 'Q62F', 'Q62TG', 'A121',
+    df_out = df_PAS[['ward_n', 'C2','Month', 'Year', 'Q1', 'Q13', 'Q60', 'Q61', 'Q62A', 'Q62C', 'Q62F', 'Q62TG', 'A121',
        'Q131', 'Q133', 'NQ135BD', 'NQ135BH']]
-
-
-    # print(df_out[['Ward name', 'Q1', 'Q13', 'Q60', 'Q61', 'Q62A', 'Q62C', 'Q62F', 
-    # 'Q62TG', 'A121', 'Q131', 'Q133', 'NQ135BD', 'NQ135BH']].groupby('Ward name').mean())
     
-    for q in ['Q1', 'Q13', 'Q60', 'Q61', 'Q62A', 'Q62C', 'Q62F', 'Q62TG', 'A121',
-       'Q131', 'Q133', 'NQ135BD', 'NQ135BH']:
-        df_out[q] = df_out[["ward_n", q]].groupby("ward_n").transform(lambda x: x.fillna(x.mean()))
+    if recode:
+        for q in ['Q1', 'Q13', 'Q60', 'Q61', 'Q62A', 'Q62C', 'Q62F', 'Q62TG', 'A121',
+        'Q131', 'Q133', 'NQ135BD', 'NQ135BH']:
+            df_out[q] = df_out[["ward_n", q]].groupby("ward_n").transform(lambda x: x.fillna(x.mean()))
 
-    weights = {
-        'Q60': 0.2,
-        'Q62C': 0.2,
-        'Q61': 0.1,
-        'Q62A': 0.1,
-        'Q62F': 0.1,
-        'Q62TG': 0.1,
-        'NQ135BH': 0.1,
-        'Q131': 0.05,
-        'Q133': 0.05
-    }
+        weights = {
+            'Q60': 0.2,
+            'Q62C': 0.2,
+            'Q61': 0.1,
+            'Q62A': 0.1,
+            'Q62F': 0.1,
+            'Q62TG': 0.1,
+            'NQ135BH': 0.1,
+            'Q131': 0.05,
+            'Q133': 0.05
+        }
 
-    def calculate_confidence(row): # Taken from Nabil's code
-        total_weight = 0
-        weighted_sum = 0
-        for column, weight in weights.items():
-            if pd.notnull(row[column]):
-                weighted_sum += row[column] * weight
-                total_weight += weight
-        if total_weight == 0:
-            return np.nan
-        return weighted_sum / total_weight
+        def calculate_confidence(row): # Taken from Nabil's code
+            total_weight = 0
+            weighted_sum = 0
+            for column, weight in weights.items():
+                if pd.notnull(row[column]):
+                    weighted_sum += row[column] * weight
+                    total_weight += weight
+            if total_weight == 0:
+                return np.nan
+            return weighted_sum / total_weight
 
-    df_out['Confidence'] = df_out.apply(calculate_confidence, axis=1)
+        df_out['Confidence'] = df_out.apply(calculate_confidence, axis=1)
 
     df_out = df_out.rename(columns=
         {
             'C2':'Borough name', 
             'ward_n': 'Ward name', 
-            'ward': 'Ward code',
+            #'ward': 'Ward code',
             'Q1': 'qLivedInAreaForYears', 
             'Q13':'qWorriedAboutCrimeInArea', 
             'Q60':'qGoodJobLocal', 
@@ -643,9 +641,10 @@ def further_clean_PAS(df_PAS: pd.DataFrame) -> pd.DataFrame:
 
 
 
-def aggregate_PAS_data(clean_PAS: pd.DataFrame) -> Dict['str', pd.DataFrame]:
+def aggregate_PAS_data(clean_PAS: pd.DataFrame, confidence: bool = True) -> Dict['str', pd.DataFrame]:
     """
     Aggregates the PAS data.
+    :param confidence: if including confidence is needed or not
     """
     outdct = {}
 
@@ -665,8 +664,10 @@ def aggregate_PAS_data(clean_PAS: pd.DataFrame) -> Dict['str', pd.DataFrame]:
         'qInformedLondon',
         'Trust',
         'qPoliceHeldAccountable',
-        'Confidence']:
+        ]:
         mapper[q] = ['mean']
+    if confidence:
+        mapper['Confidence'] = ['mean']
 
 
     df1 = clean_PAS.groupby(['Year', "Borough name"]).agg(mapper).reset_index()
@@ -693,41 +694,239 @@ def aggregate_PAS_data(clean_PAS: pd.DataFrame) -> Dict['str', pd.DataFrame]:
 
 
 
-def join_data_month_ward(
+def join_data(
     aggregated_street: pd.DataFrame, 
     aggregated_search: pd.DataFrame,
     aggregated_PAS: pd.DataFrame,
+    how_time: str = 'Month',
+    how_space: str = 'Ward name',
+    recode_to_period_PAS: bool = True
     ) -> pd.DataFrame:
     """
-    Joins the prepared datasets
+    Joins the prepared datasets, depending on the level of aggregation (to be specified in how_time and how_space)
+    :param aggregated_street: Aggregated street data
+    :param aggregated_search: Aggregated search data
+    :param aggregated_PAS: Aggregated PAS data
+    :param how_time: one of "Month", "Year"
+    :param how_space: one of "Ward name", "Borough name"
+    :param recode_to_period_PAS: Whether to recode PAS Month to period or not in the process
+    :returns: a DataFrame that is a join of the three input dataframes.
     """
+    aggregated_street[how_time] = pd.to_datetime(aggregated_street[how_time], format='%Y-%m').dt.to_period("M")
+    aggregated_search[how_time] = pd.to_datetime(aggregated_search[how_time], format='%Y-%m').dt.to_period("M")
+    if recode_to_period_PAS:
+        aggregated_PAS[how_time] = pd.to_datetime(aggregated_PAS[how_time], format='%Y-%m').dt.to_period("M")
+
+    print(aggregated_search[how_time].dtype)
+    start1 = aggregated_street[how_time].min()
+    start2 = aggregated_search[how_time].min()
+    start3 = aggregated_PAS[how_time].min()
+
+    # Get ending measurement dates
+    end1 = aggregated_street[how_time].max()
+    end2 = aggregated_search[how_time].max()
+    end3= aggregated_PAS[how_time].max()
+
+    start_measurement = max(start1, start2, start3)
+    end_measurement = min(end1, end2, end3)
+
+    print(f"Start date: {start_measurement}; end date: {end_measurement}")
+
+    aggregated_street = aggregated_street[(aggregated_street[how_time] >= start_measurement) & (aggregated_street[how_time] <= end_measurement)]
+    aggregated_search = aggregated_search[(aggregated_search[how_time] >= start_measurement) & (aggregated_search[how_time] <= end_measurement)]
+    aggregated_PAS = aggregated_PAS[(aggregated_PAS[how_time] >= start_measurement) & (aggregated_PAS[how_time] <= end_measurement)]
+
     merged = pd.merge(
         aggregated_PAS, 
         aggregated_street, 
         how='left', 
-        left_on=['Month', 'Ward name'], 
-        right_on=['Month', 'Ward name']
+        left_on=[how_time, how_space], 
+        right_on=[how_time, how_space]
         ).copy()
     merged_out = pd.merge(
         merged, 
         aggregated_search, 
         how='left', 
-        left_on=['Month', 'Ward name'], 
-        right_on=['Month', 'Ward name']
+        left_on=[how_time, how_space], 
+        right_on=[how_time, how_space]
         ).copy()
-    # merged_out = merged_out.dropna().reset_index().copy()
+    merged_out = merged_out.dropna().reset_index(drop=True).copy()
 
     return merged_out
 
 
-   
-# PAS = pd.read_csv('PAS_month_ward.csv')
-# street = pd.read_csv('street_month_ward.csv')
-# search = pd.read_csv('search_month_ward.csv')
+def prepare_in_depth_PAS_categories(
+        aggregated_street: pd.DataFrame, 
+        aggregated_search: pd.DataFrame, 
+        PAS: pd.DataFrame, 
+        PAS_column_names: List[str], 
+        how_time: str = "Month", 
+        how_space: str = "Ward name") -> pd.DataFrame:
+    """
+    Prepares data for in depth analysis.
+    """
+    aggr_mapper = {}
+    df = further_clean_PAS(PAS, recode=False).copy()
 
-# aggregated_PAS = aggregate_PAS_data(clean_PAS=clean_PAS)
-# for key, value in aggregated_PAS.items():
-#     value.to_csv(f"{key}.csv")
+    for column in PAS_column_names:
+        renamer = {}
+        one_hot_encoded = pd.get_dummies(df[column])
+        one_hot_encoded = one_hot_encoded.astype(int)
+        df = pd.concat([df, one_hot_encoded], axis=1)
+        for i in one_hot_encoded.columns:
+            renamer[i] = f"{column}_{i}"
+            aggr_mapper[renamer[i]] = ['sum']
+        df = df.rename(columns=renamer).copy()
 
-# x = join_data_month_ward(street, search, PAS)
+    for q in [
+        'qLivedInAreaForYears',
+        'qWorriedAboutCrimeInArea',
+        'qGoodJobLocal',
+        'qGoodJobLondon',
+        'qReliedOnToBeThere',
+        'qTreatEveryoneFairly',
+        'qDealWithWhatMattersToTheCommunity',
+        'qListenToConcerns',
+        'qConfidentThatStopAndSearchFair',
+        'qInformedLocal',
+        'qInformedLondon',
+        'Trust',
+        'qPoliceHeldAccountable',
+        ]:
+        aggr_mapper[q] = ['mean']
+
+    aggr_mapper['Year'] = ['first']
+    aggr_mapper['Borough name'] = ['first']
+
+    # Recoding
+    question_mappers_dct = {}
+
+    question_mappers_dct['qLivedInAreaForYears'] = {
+        '5 years but less than 10 years': 7.5,
+        '30 years or more': 35,
+        '2 years but less than 3 years': 2.5,
+        '12 months but less than 2 years': 1.5,
+        'Less than 12 months': 0.5,
+        '20 years but less than 30 years': 25,
+        '3 years but less than 5 years': 4,
+        '10 years but less than 20 years':15
+    }
+    question_mappers_dct['qWorriedAboutCrimeInArea'] = {
+        'Not very worried': 2,
+        'Fairly worried': 3,
+        'Not at all worried': 1,
+        'Very worried': 4,
+    }
+    for q in ['qGoodJobLocal', 'qGoodJobLondon']:
+        question_mappers_dct[q] = {
+            'Good': 4,
+            'Excellent': 5,
+            'Fair': 3,
+            'Very poor': 1, 
+            'Poor': 2,
+        }
+    
+    for q in ['qReliedOnToBeThere', 'qTreatEveryoneFairly', 'qDealWithWhatMattersToTheCommunity', 'qListenToConcerns', 'Trust']:
+        question_mappers_dct[q] = {
+            'Tend to agree': 4,
+            'Strongly agree': 5,
+            'Tend to disagree': 2,
+            'Neither agree nor disagree': 3,
+            'Strongly disagree': 1
+        }
+    
+    question_mappers_dct['qPoliceHeldAccountable'] = {
+        'Tend to agree': 4,
+        'Strongly agree': 5,
+        'Tend to disagree': 2,
+        'Neither agree nor disagree': 3,
+        'Strongly disagree': 1,
+        'Not Asked': np.nan,
+        "Don't know": np.nan,
+        'Refused': np.nan
+        }
+    
+    question_mappers_dct['qConfidentThatStopAndSearchFair'] = {
+        'Fairly confident':3,
+        'Very confident': 4,
+        'Not very confident': 2,
+        'Not at all confident': 1,
+    }
+
+    for q in ['qInformedLocal', 'qInformedLondon']:
+        question_mappers_dct[q] = {
+        'Fairly well informed': 2, 
+        'Not at all informed': 1, 
+        'Very well informed': 3,
+        }
+
+    for column in question_mappers_dct:
+        df[column] = df[column].map(question_mappers_dct[column])
+    
+    for q in ['qLivedInAreaForYears',
+        'qWorriedAboutCrimeInArea',
+        'qGoodJobLocal',
+        'qGoodJobLondon',
+        'qReliedOnToBeThere',
+        'qTreatEveryoneFairly',
+        'qDealWithWhatMattersToTheCommunity',
+        'qListenToConcerns',
+        'qConfidentThatStopAndSearchFair',
+        'qInformedLocal',
+        'qInformedLondon',
+        'Trust',
+        'qPoliceHeldAccountable']:
+        df[q] = df[["Ward name", q]].groupby("Ward name").transform(lambda x: x.fillna(x.mean()))
+
+    # Defining confidence
+    weights = {
+        'qGoodJobLocal': 0.2,
+        'qTreatEveryoneFairly': 0.2,
+        'qGoodJobLondon': 0.1,
+        'qReliedOnToBeThere': 0.1,
+        'qDealWithWhatMattersToTheCommunity': 0.1,
+        'qListenToConcerns': 0.1,
+        'qPoliceHeldAccountable': 0.1,
+        'qInformedLocal': 0.05,
+        'qInformedLondon': 0.05
+    }
+
+    def calculate_confidence(row): # Taken from Nabil's code
+        total_weight = 0
+        weighted_sum = 0
+        for column, weight in weights.items():
+            if pd.notnull(row[column]):
+                weighted_sum += row[column] * weight
+                total_weight += weight
+        if total_weight == 0:
+            return np.nan
+        return weighted_sum / total_weight
+
+    df['Confidence'] = df.apply(calculate_confidence, axis=1)
+    aggr_mapper['Confidence'] = ['mean']
+    df4 = df.groupby(['Month', "Ward name"]).agg(aggr_mapper).reset_index()
+    df4.columns = [col_name[0] for col_name in df4.columns]
+    
+
+    out = join_data(aggregated_street, aggregated_search, df4, how_time, how_space, recode_to_period_PAS=False)
+
+    return out
+
+
+
+
+
+# aggregated_PAS = pd.read_csv('PAS_month_ward.csv')
+street = pd.read_csv('street_month_ward.csv')
+search = pd.read_csv('search_month_ward.csv')
+
+# x = join_data(street, search, aggregated_PAS, how_space="Ward name", how_time="Month").drop(columns = ['Unnamed: 0_x'])
 # x.to_csv('aggregation_attempt.csv')
+
+PAS = pd.read_csv('PAS_new.csv')
+
+prepare_in_depth_PAS_categories(street, search, PAS, ["qTreatEveryoneFairly", 
+                                                      "qGoodJobLondon", 
+                                                      "qPoliceHeldAccountable",
+                                                      "qReliedOnToBeThere",
+                                                      "qConfidentThatStopAndSearchFair"]).to_csv('experiment.csv')
