@@ -1,3 +1,6 @@
+### CLEAR MEMORY (IF NEEDED)
+#rm(list=ls())
+
 ### LOAD LIBRARIES
 library(plm)
 library(dplyr)
@@ -6,7 +9,7 @@ library(foreign)
 library(modelsummary)
 library(car)
 
-rm(list=ls())
+
 
 ### LOAD DATA
 data = read.csv("aggregation_attempt.csv")
@@ -16,25 +19,25 @@ borough_list <- data %>% subset(select=c(Borough.name_x, Borough.name_y, Borough
 
 data_useful_t <- data %>% subset(select=c(Month, Ward.name, qLivedInAreaForYears, qWorriedAboutCrimeInArea, 
                                                 qGoodJobLocal, qGoodJobLondon,qReliedOnToBeThere, qTreatEveryoneFairly, qDealWithWhatMattersToTheCommunity,
-                                                qConfidentThatStopAndSearchFair, qInformedLocal, qInformedLondon, Trust, qPoliceHeldAccountable, crimeTheft, 
+                                                qListenToConcerns, qConfidentThatStopAndSearchFair, qInformedLocal, qInformedLondon, Trust, qPoliceHeldAccountable, crimeTheft, 
                                                 crimeViolence, crimePublicDisorder, resolutionYes, Pay, jobDensity, Female, Other,
                                                 X10.17, X18.24, X25.34, over.34, Asian, Black, Other.1, searchReasonCriminal, searchReasonDrugs, outcomeUnsuitableForSearch))
 
 
 data_useful_nocovid_t <- data_nocovid %>% subset(select=c(Month, Ward.name, qLivedInAreaForYears, qWorriedAboutCrimeInArea, 
-                                                        qGoodJobLocal, qGoodJobLondon,qReliedOnToBeThere, qTreatEveryoneFairly, qDealWithWhatMattersToTheCommunity,
+                                                        qGoodJobLocal, qGoodJobLondon,qReliedOnToBeThere, qTreatEveryoneFairly, qDealWithWhatMattersToTheCommunity,qListenToConcerns,
                                                         qConfidentThatStopAndSearchFair, qInformedLocal, qInformedLondon, Trust, qPoliceHeldAccountable, crimeTheft, 
                                                         crimeViolence, crimePublicDisorder, resolutionYes, Pay, jobDensity, Female, Other,
                                                         X10.17, X18.24, X25.34, over.34, Asian, Black, Other.1, searchReasonCriminal, searchReasonDrugs, outcomeUnsuitableForSearch))
 
 data_useful_c <- data %>% subset(select=c(Month, Ward.name, qLivedInAreaForYears, qWorriedAboutCrimeInArea, 
-                                          qGoodJobLocal, qGoodJobLondon,qReliedOnToBeThere, qTreatEveryoneFairly, qDealWithWhatMattersToTheCommunity,
+                                          qGoodJobLocal, qGoodJobLondon,qReliedOnToBeThere, qTreatEveryoneFairly, qDealWithWhatMattersToTheCommunity, qListenToConcerns,
                                           qConfidentThatStopAndSearchFair, qInformedLocal, qInformedLondon, Trust, Confidence, qPoliceHeldAccountable, crimeTheft, 
                                           crimeViolence, crimePublicDisorder, resolutionYes, Pay, jobDensity, Female, Other,
                                           X10.17, X18.24, X25.34, over.34, Asian, Black, Other.1, searchReasonCriminal, searchReasonDrugs, outcomeUnsuitableForSearch))
 
 data_useful_nocovid_c <- data_nocovid %>% subset(select=c(Month, Ward.name, qLivedInAreaForYears, qWorriedAboutCrimeInArea, 
-                                                  qGoodJobLocal, qGoodJobLondon,qReliedOnToBeThere, qTreatEveryoneFairly, qDealWithWhatMattersToTheCommunity,
+                                                  qGoodJobLocal, qGoodJobLondon,qReliedOnToBeThere, qTreatEveryoneFairly, qDealWithWhatMattersToTheCommunity, qListenToConcerns,
                                                   qConfidentThatStopAndSearchFair, qInformedLocal, qInformedLondon, Trust, Confidence, qPoliceHeldAccountable, crimeTheft, 
                                                   crimeViolence, crimePublicDisorder, resolutionYes, Pay, jobDensity, Female, Other,
                                                   X10.17, X18.24, X25.34, over.34, Asian, Black, Other.1, searchReasonCriminal, searchReasonDrugs, outcomeUnsuitableForSearch))
@@ -170,10 +173,11 @@ simpler_final_all <- plm(Trust ~ qWorriedAboutCrimeInArea + qGoodJobLocal +
 simpler_final_nocov <- plm(Trust ~ qGoodJobLocal + qGoodJobLondon + 
                              qReliedOnToBeThere + qTreatEveryoneFairly + 
                              qDealWithWhatMattersToTheCommunity + 
-                             qConfidentThatStopAndSearchFair + qInformedLondon + 
+                             qConfidentThatStopAndSearchFair +
+                             qInformedLondon + 
                              qPoliceHeldAccountable + crimePublicDisorder + 
                              resolutionYes + Asian + Black + Other.1 + 
-                             outcomeUnsuitableForSearch, data = pdata_t, 
+                             outcomeUnsuitableForSearch, data = pdata_nocovid_t, 
                            model = "within", effect='time')
 
 summary(simpler_final_all)
@@ -181,4 +185,129 @@ summary(simpler_final_nocov)
 
 ### FURTHER ANALYSIS -> PUTTING MORE ATTENTION TO CERTAIN CATEGORIES
 
+unique(sort(pdata_t$Month))
 
+more_data <- read.csv('experiment.csv')
+more_data_nocovid <- more_data %>% subset(Month < "2020-04")
+
+more_useful_t <- more_data %>% subset(select=c(Month, Ward.name, qLivedInAreaForYears, qWorriedAboutCrimeInArea, 
+                                          qGoodJobLocal, 
+                                          qGoodJobLondon_Excellent, qGoodJobLondon_Good, qGoodJobLondon_Poor, qGoodJobLondon_Very.poor,
+                                          qReliedOnToBeThere_Strongly.agree, qReliedOnToBeThere_Tend.to.agree, qReliedOnToBeThere_Tend.to.disagree, qReliedOnToBeThere_Strongly.disagree,
+                                          qTreatEveryoneFairly_Strongly.agree, qTreatEveryoneFairly_Tend.to.agree, qTreatEveryoneFairly_Tend.to.disagree, qTreatEveryoneFairly_Strongly.disagree, 
+                                          qDealWithWhatMattersToTheCommunity,
+                                          qListenToConcerns, 
+                                          qConfidentThatStopAndSearchFair_Not.very.confident, qConfidentThatStopAndSearchFair_Fairly.confident, qConfidentThatStopAndSearchFair_Very.confident, 
+                                          qInformedLocal, 
+                                          qInformedLondon, 
+                                          Trust, 
+                                          qPoliceHeldAccountable_Strongly.agree, qPoliceHeldAccountable_Tend.to.agree, qPoliceHeldAccountable_Tend.to.disagree, qPoliceHeldAccountable_Strongly.disagree,
+                                          crimeTheft, 
+                                          crimeViolence, crimePublicDisorder, resolutionYes, Pay, jobDensity, Female, Other,
+                                          X10.17, X18.24, X25.34, over.34, Asian, Black, Other.1, searchReasonCriminal, searchReasonDrugs, outcomeUnsuitableForSearch))
+
+
+more_useful_nocovid_t <- more_data_nocovid %>% subset(select=c(Month, Ward.name, qLivedInAreaForYears, qWorriedAboutCrimeInArea, 
+                                                               qGoodJobLocal, 
+                                                               qGoodJobLondon_Excellent, qGoodJobLondon_Good, qGoodJobLondon_Poor, qGoodJobLondon_Very.poor,
+                                                               qReliedOnToBeThere_Strongly.agree, qReliedOnToBeThere_Tend.to.agree, qReliedOnToBeThere_Tend.to.disagree, qReliedOnToBeThere_Strongly.disagree,
+                                                               qTreatEveryoneFairly_Strongly.agree, qTreatEveryoneFairly_Tend.to.agree, qTreatEveryoneFairly_Tend.to.disagree, qTreatEveryoneFairly_Strongly.disagree, 
+                                                               qDealWithWhatMattersToTheCommunity,
+                                                               qListenToConcerns, 
+                                                               qConfidentThatStopAndSearchFair_Not.very.confident, qConfidentThatStopAndSearchFair_Fairly.confident, qConfidentThatStopAndSearchFair_Very.confident, 
+                                                               qInformedLocal, 
+                                                               qInformedLondon, Trust, 
+                                                               qPoliceHeldAccountable_Strongly.agree, qPoliceHeldAccountable_Tend.to.agree, qPoliceHeldAccountable_Tend.to.disagree, qPoliceHeldAccountable_Strongly.disagree,
+                                                               crimeTheft, 
+                                                               crimeViolence, crimePublicDisorder, resolutionYes, Pay, jobDensity, Female, Other,
+                                                               X10.17, X18.24, X25.34, over.34, Asian, Black, Other.1, searchReasonCriminal, searchReasonDrugs, outcomeUnsuitableForSearch))
+
+more_useful_c <- more_data %>% subset(select=c(Month, Ward.name, qLivedInAreaForYears, qWorriedAboutCrimeInArea, 
+                                                        qGoodJobLocal, 
+                                                        qGoodJobLondon_Excellent, qGoodJobLondon_Good, qGoodJobLondon_Poor, qGoodJobLondon_Very.poor,
+                                                        qReliedOnToBeThere_Strongly.agree, qReliedOnToBeThere_Tend.to.agree, qReliedOnToBeThere_Tend.to.disagree, qReliedOnToBeThere_Strongly.disagree,
+                                                        qTreatEveryoneFairly_Strongly.agree, qTreatEveryoneFairly_Tend.to.agree, qTreatEveryoneFairly_Tend.to.disagree, qTreatEveryoneFairly_Strongly.disagree, 
+                                                        qDealWithWhatMattersToTheCommunity,
+                                                        qListenToConcerns, 
+                                                        qConfidentThatStopAndSearchFair_Not.very.confident, qConfidentThatStopAndSearchFair_Fairly.confident, qConfidentThatStopAndSearchFair_Very.confident, 
+                                                        qInformedLocal, 
+                                                        qInformedLondon, Trust, Confidence,
+                                                        qPoliceHeldAccountable_Strongly.agree, qPoliceHeldAccountable_Tend.to.agree, qPoliceHeldAccountable_Tend.to.disagree, qPoliceHeldAccountable_Strongly.disagree,
+                                                        crimeTheft, 
+                                                        crimeViolence, crimePublicDisorder, resolutionYes, Pay, jobDensity, Female, Other,
+                                                        X10.17, X18.24, X25.34, over.34, Asian, Black, Other.1, searchReasonCriminal, searchReasonDrugs, outcomeUnsuitableForSearch))
+                                      
+more_useful_nocovid_c <- more_data_nocovid %>% subset(select=c(Month, Ward.name, qLivedInAreaForYears, qWorriedAboutCrimeInArea, 
+                                                                        qGoodJobLocal, 
+                                                                        qGoodJobLondon_Excellent, qGoodJobLondon_Good, qGoodJobLondon_Poor, qGoodJobLondon_Very.poor,
+                                                                        qReliedOnToBeThere_Strongly.agree, qReliedOnToBeThere_Tend.to.agree, qReliedOnToBeThere_Tend.to.disagree, qReliedOnToBeThere_Strongly.disagree,
+                                                                        qTreatEveryoneFairly_Strongly.agree, qTreatEveryoneFairly_Tend.to.agree, qTreatEveryoneFairly_Tend.to.disagree, qTreatEveryoneFairly_Strongly.disagree, 
+                                                                        qDealWithWhatMattersToTheCommunity,
+                                                                        qListenToConcerns, 
+                                                                        qConfidentThatStopAndSearchFair_Not.very.confident, qConfidentThatStopAndSearchFair_Fairly.confident, qConfidentThatStopAndSearchFair_Very.confident, 
+                                                                        qInformedLocal, 
+                                                                        qInformedLondon, Trust, Confidence,
+                                                                        qPoliceHeldAccountable_Strongly.agree, qPoliceHeldAccountable_Tend.to.agree, qPoliceHeldAccountable_Tend.to.disagree, qPoliceHeldAccountable_Strongly.disagree,
+                                                                        crimeTheft, 
+                                                                        crimeViolence, crimePublicDisorder, resolutionYes, Pay, jobDensity, Female, Other,
+                                                                        X10.17, X18.24, X25.34, over.34, Asian, Black, Other.1, searchReasonCriminal, searchReasonDrugs, outcomeUnsuitableForSearch))
+                                                      
+pdata_more_t <- pdata.frame(more_useful_t[, c(2,1,3:ncol(more_useful_t))])
+pdata_more_nocovid_t <- pdata.frame(more_useful_nocovid_t[, c(2,1,3:ncol(more_useful_nocovid_t))])
+pdata_more_c <- pdata.frame(more_useful_c[, c(2,1,3:ncol(more_useful_c))])
+pdata_more_nocovid_c <- pdata.frame(more_useful_nocovid_c[, c(2,1,3:ncol(more_useful_nocovid_c))])
+
+
+adv_simpler_final_all <- plm(Trust ~ qWorriedAboutCrimeInArea + qGoodJobLocal + 
+                           qGoodJobLondon_Excellent + 
+                           qGoodJobLondon_Good + 
+                           qGoodJobLondon_Poor + 
+                           qGoodJobLondon_Very.poor+
+                           qReliedOnToBeThere_Strongly.agree +
+                           qReliedOnToBeThere_Tend.to.agree +
+                           qReliedOnToBeThere_Tend.to.disagree +
+                           qReliedOnToBeThere_Strongly.disagree + 
+                           qTreatEveryoneFairly_Strongly.agree + 
+                           qTreatEveryoneFairly_Tend.to.agree + 
+                           qTreatEveryoneFairly_Tend.to.disagree + 
+                           qTreatEveryoneFairly_Strongly.disagree +
+                           qDealWithWhatMattersToTheCommunity + 
+                           qConfidentThatStopAndSearchFair_Not.very.confident + 
+                           qConfidentThatStopAndSearchFair_Fairly.confident + 
+                           qConfidentThatStopAndSearchFair_Very.confident + 
+                           qInformedLondon + 
+                           qPoliceHeldAccountable_Strongly.agree + 
+                           qPoliceHeldAccountable_Tend.to.agree +
+                           qPoliceHeldAccountable_Tend.to.disagree +
+                           qPoliceHeldAccountable_Strongly.disagree +
+                           Other + Asian + Black + Other.1 + outcomeUnsuitableForSearch, 
+                         data = pdata_more_t, model = "within", effect='twoways')
+adv_simpler_final_nocov <- plm(Trust ~ qGoodJobLocal + 
+                             qGoodJobLondon_Excellent + 
+                             qGoodJobLondon_Good + 
+                             qGoodJobLondon_Poor + 
+                             qGoodJobLondon_Very.poor+ 
+                             qReliedOnToBeThere_Strongly.agree +
+                             qReliedOnToBeThere_Tend.to.agree +
+                             qReliedOnToBeThere_Tend.to.disagree +
+                             qReliedOnToBeThere_Strongly.disagree +
+                             qTreatEveryoneFairly_Strongly.agree + 
+                             qTreatEveryoneFairly_Tend.to.agree + 
+                             qTreatEveryoneFairly_Tend.to.disagree + 
+                             qTreatEveryoneFairly_Strongly.disagree +
+                             qDealWithWhatMattersToTheCommunity + 
+                             qConfidentThatStopAndSearchFair_Not.very.confident + 
+                             qConfidentThatStopAndSearchFair_Fairly.confident + 
+                             qConfidentThatStopAndSearchFair_Very.confident + 
+                             qInformedLondon + 
+                             qPoliceHeldAccountable_Strongly.agree + 
+                             qPoliceHeldAccountable_Tend.to.agree +
+                             qPoliceHeldAccountable_Tend.to.disagree +
+                             qPoliceHeldAccountable_Strongly.disagree +
+                             + crimePublicDisorder + 
+                             resolutionYes + Asian + Black + Other.1 + 
+                             outcomeUnsuitableForSearch, data = pdata_more_nocovid_t, 
+                           model = "within", effect='time')
+
+summary(adv_simpler_final_all)
+summary(adv_simpler_final_nocov)
