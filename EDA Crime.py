@@ -3,6 +3,10 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import datetime
 import folium
+import re
+import pandas as pd
+import matplotlib.pyplot as plt
+from collections import defaultdict
 
 
 #Combine CSV's
@@ -16,18 +20,28 @@ import folium
 # print("done saving")
 # df_con1.to_csv(folder_path + "/metropolitan-outcomes-combined.csv", index=False)
 
-df1 = pd.read_csv("C:/Users/hetvi/Downloads/Combined/metropolitan-street.csv")
-print(df1['Crime ID'].value_counts())
-print(df1.count())
-df12 = pd.read_csv("C:/Users/hetvi/Downloads/Combined1/metropolitan-street1.csv")
-print(df12['Crime ID'].value_counts())
-print(df12.count())
-df13 = pd.read_csv("C:/Users/hetvi/Downloads/Combined3/metropolitan-street3.csv")
-print(df13['Crime ID'].value_counts())
-print(df13.count())
-df14 = pd.read_csv("C:/Users/hetvi/Downloads/Combined2/metropolitan-street2.csv")
-print(df14['Crime ID'].value_counts())
-print(df14.count())
+# df1 = pd.read_csv("C:/Users/hetvi/Downloads/Combined/metropolitan-street.csv")
+# print(df1['Crime ID'].value_counts())
+# print(df1.count())
+# df12 = pd.read_csv("C:/Users/hetvi/Downloads/Combined1/metropolitan-street1.csv")
+# print(df12['Crime ID'].value_counts())
+# print(df12.count())
+# df13 = pd.read_csv("C:/Users/hetvi/Downloads/Combined3/metropolitan-street3.csv")
+# print(df13['Crime ID'].value_counts())
+# print(df13.count())
+# df14 = pd.read_csv("C:/Users/hetvi/Downloads/Combined2/metropolitan-street2.csv")
+# print(df14['Crime ID'].value_counts())
+# print(df14.count())
+# data = pd.read_csv("C:/Users/hetvi/Downloads/2018-03/2018-03/2018-03-metropolitan-street.csv")
+# data2 = pd.read_csv("C:/Users/hetvi/Downloads/2018-03/2018-01/2018-01-metropolitan-street.csv")
+# print(data.count())
+# print(data2.count())
+#
+# print(data['Crime ID'].value_counts())
+# print(data2['Crime ID'].value_counts())
+# dataf = pd.concat([data, data2])
+# print(dataf['Crime ID'].value_counts())
+# print(dataf.count())
 # print("all loaded")
 # df_con2 = pd.concat([df1, df12, df13, df14])
 # print(df_con2['Month'].unique())
@@ -49,6 +63,7 @@ print(df14.count())
 df = pd.read_csv("CombinedFinal/metropolitan-outcomes-combined.csv")
 # Initial Exploration
 # df.info()
+# print(df.count())
 # df = df.dropna()
 # print(df['Month'].unique())
 # print(df['Reported by'].unique())
@@ -133,11 +148,11 @@ df = pd.read_csv("CombinedFinal/metropolitan-outcomes-combined.csv")
 # plt.grid(True)
 # plt.show()
 #
-# # m = folium.Map(location=[df['Latitude'].mean(), df['Longitude'].mean()], zoom_start=10)
+# m = folium.Map(location=[df['Latitude'].mean(), df['Longitude'].mean()], zoom_start=10)
 # # for index, row in df.iterrows():
 # #     folium.Marker([row['Latitude'], row['Longitude']], popup=f"Crime ID: {row['Crime ID']}").add_to(m)
 # #
-# # m.save('crime_map.html')
+# m.save('crime_map.html')
 # # m
 #
 #
@@ -171,27 +186,29 @@ df = pd.read_csv("CombinedFinal/metropolitan-outcomes-combined.csv")
 #
 # ####################################### EDA Street ####################################################
 #
-# df2 = pd.read_csv("CombinedFinal/metropolitan-street-combined.csv")
+# df2 = pd.read_csv("Dashboard/metropolitan-street-combined.csv")
 # ## Inital exploration of data types
-# # df2.info()
-# # print(df2.describe())
-# #
-# # print(df2['Month'].unique())
-# # print(df2['Reported by'].unique())
-# # print(df2['Falls within'].unique())
-# # print(df2['LSOA code'].unique())
-# # print(df2['Location'].unique())
-# # print(len(df2['LSOA code'].unique()))
-# # print(df2['LSOA name'].unique())
-# # print(df2['Crime type'].unique())
-# # print(df2['Crime type'].value_counts())
-# # print(df2['Crime ID'].value_counts())
-# # print(df2['Last outcome category'].unique())
-# # print(df2['Last outcome category'].value_counts())
-# # print(df2['Context'].unique())
-# # print(df2[df2['Crime ID']== '490b595dc6eb4b0a3e1f8d7fa53d2be5460d146d8f133a8ee20ed3c3b7319bc3']['Last outcome category'].unique())
-# # print(df.info())
-#
+# df2.info()
+# print(df2.count())
+# df3 = df2.drop_duplicates(subset=None, keep='first', inplace=False)
+# print(df3.count())
+# print(df2.describe())
+# print(df2['Month'].unique())
+# print(df2['Reported by'].unique())
+# print(df2['Falls within'].unique())
+# print(df2['LSOA code'].unique())
+# print(df2['Location'].unique())
+# print(len(df2['LSOA code'].unique()))
+# print(df2['LSOA name'].unique())
+# print(df2['Crime type'].unique())
+# print(df2['Crime type'].value_counts())
+# print(df2['Crime ID'].value_counts())
+# print(df2['Last outcome category'].unique())
+# print(df2['Last outcome category'].value_counts())
+# print(df2['Context'].unique())
+# print(df2[df2['Crime ID']== '490b595dc6eb4b0a3e1f8d7fa53d2be5460d146d8f133a8ee20ed3c3b7319bc3']['Last outcome category'].unique())
+# print(df.info())
+
 # # Types of crime count
 # sns.countplot(data=df2, x='Crime type')
 # plt.title("Types of crime count")
@@ -228,3 +245,62 @@ df = pd.read_csv("CombinedFinal/metropolitan-outcomes-combined.csv")
 # plt.legend(title='Crime Type')
 # plt.show()
 # plt.legend.remove()
+
+
+# df = pd.read_csv('C:/Users/hetvi/Downloads/dc2/Dashboard/metropolitan-street-combined.csv')
+
+# crime_count = df.groupby(['Month', 'Crime type']).size().reset_index(name='count')
+# print(crime_count)
+# crime_count_pivot = crime_count.pivot(index='Month', columns='Crime type', values='count').fillna(0)
+# print(len(df['Location'].unique()))
+# print(df['Location'].unique()[150:250])
+
+# print(df['Month'].unique())
+
+# print(df[df['Month'] == '2018-02'])
+# # Define categories and their associated regex patterns
+# categories = {
+#     "Transportation": re.compile(r"\b(subway|train|railway station|bus|airport|nderground|tube|metro|tram|petrol station|drive|parking|highway)\b", re.IGNORECASE),
+#     "Markets/Malls": re.compile(r"\b(shopping|mall|market|plaza|bazaar|close|supermarket|square)\b", re.IGNORECASE),
+#     "Parks/Recreation": re.compile(r"\b(park|garden|beach|trail|grove|sports|recreation|cinema|concert|gardens|terrace|walk|fields|hill|lodge|lawn|cottages|vineyard|path)\b", re.IGNORECASE),
+#     "Restaurants/Cafes": re.compile(r"\b(restaurant|cafe|diner|bistro|nightclub)\b", re.IGNORECASE),
+#     "Streets": re.compile(r"\b(road|avenue|lane|street|place|way|row|alley|bridge|route)\b", re.IGNORECASE),
+#     "Education": re.compile(r"\b(school|college|university|preschool|educational)\b", re.IGNORECASE),
+#     "Buildings": re.compile(r"\b(court|police station|Conference|Exhibition Centre|hospital|bank|broadway)\b", re.IGNORECASE),
+# }
+#
+# # Function to classify locations
+# def classify_location(location, categories):
+#     for category, pattern in categories.items():
+#         if pattern.search(location):
+#             return category
+#     return "Other"
+#
+# crime_type = df['Crime type'].unique()
+# for type in crime_type:
+#     # Read locations from a file (e.g., CSV)
+#     new = df[df['Crime type']== type]
+#     locations = new['Location'].tolist()
+#
+#     # Classify each location
+#     classified_locations = defaultdict(int)
+#
+#     for location in locations:
+#         category = classify_location(location, categories)
+#         classified_locations[category] += 1
+#         # if category == 'Other':
+#         #     print(location)
+#
+#     # Convert classified locations to a DataFrame for plotting
+#     classified_df = pd.DataFrame.from_dict(classified_locations, orient='index', columns=['count'])
+#     classified_df = classified_df.reset_index().rename(columns={'index': 'category'})
+#
+#     # Create a bar chart
+#     plt.figure(figsize=(10, 6))
+#     plt.bar(classified_df['category'], classified_df['count'], color='skyblue')
+#     plt.xlabel('Category')
+#     plt.ylabel('Number of Locations')
+#     plt.title(f'Number of Locations per Category per crime {type}')
+#     plt.xticks(rotation=45)
+#     plt.show()
+
