@@ -6,6 +6,7 @@ library(foreign)
 library(modelsummary)
 library(Hmisc)
 library(car)
+library(lmtest)
 
 rm(list=ls())
 set.seed(10294)
@@ -22,7 +23,7 @@ data_c <- data %>% select(-c(X,qGoodJobLocal, qGoodJobLondon, qReliedOnToBeThere
                                                       qDealWithWhatMattersToTheCommunity, qListenToConcerns, qInformedLocal, qInformedLondon,
                                                       Trust, qPoliceHeldAccountable,Borough.name_x, Year_x,Unnamed..0_y, crimeTheft,
                                                       crimeViolence, crimePublicDisorder, crimeOther, Pay, jobDensity, Borough.name_y, Year_y,
-                                                      Unnamed..0.1_y, Unnamed..0, resolutionNo, outcomeSuitableForSearch,
+                                                      Unnamed..0.1_y, Unnamed..0, resolutionNo, outcomeSuitableForSearch, searchReasonFirearms,
                                                       Unnamed..0.1_x, Year, White, Suspect.summonsed.to.court, Unable.to.prosecute.suspect, under.10,
                                                       Violent.crime, Public.disorder.and.weapons, Under.investigation, Police.and.Criminal.Evidence.Act.1984..section.1.,
                                                       Borough.name, Male, A.no.further.action.disposal, Community.resolution, respondentGender_Other,
@@ -32,7 +33,7 @@ data_c <- data %>% select(-c(X,qGoodJobLocal, qGoodJobLondon, qReliedOnToBeThere
                                                       Local.resolution_y,Offender.given.penalty.notice_y, Offender.given.a.drugs.possession.warning,Offender.given.conditional.discharge,
                                                       Defendant.found.not.guilty, Offender.given.a.caution,Offender.fined,Offender.given.suspended.prison.sentence,
                                                       Offender.deprived.of.property,Offender.otherwise.dealt.with, Offender.ordered.to.pay.compensation,
-                                                      Suspect.charged.as.part.of.another.case,Offender.given.absolute.discharge,
+                                                      Suspect.charged.as.part.of.another.case,Offender.given.absolute.discharge, X10.17,
                                                       Investigation.complete..no.suspect.identified,Local.resolution_x, Offender.given.penalty.notice_x,
                                                       Status.update.unavailable, Criminal.Justice.Act.1988..section.139B. , Criminal.Justice.and.Public.Order.Act.1994..section.60. ,
                                                       Firearms.Act.1968..section.47.,Misuse.of.Drugs.Act.1971..section.23.,Arrest,Article.found...Detailed.outcome.unavailable,
@@ -133,3 +134,64 @@ phtest(wi_time,re_time) # Reject alternative: random effects preferred
 final_model <- wi_time
 
 summary(final_model)
+
+
+
+## CHECK AUTOCORRELATION
+# H0: no autocorrelation -> p < 0.05, reject H0, we have serial correlation
+pbgtest(final_model)
+
+## CHECK HOMOSCEDASTICITY
+# H0: there is homoscedasticity -> p < 0.05, reject H0, we have heteroskedasticity
+bptest(formula_confidence, data=pdata, studentize=F)
+
+
+# ==> to mitigate both of these problems, we can use robust standard errors to
+# - ensure a correct output despite heteroskedasticity and autocorrelation.
+# This bypasses these problems but makes your results robust and reliable.
+coeftest(final_model, vcovHC(final_model, method="arellano"))
+
+
+############################ STOP AND SEARCH MODEL ###############################################
+
+library(tidyverse)
+library(caTools)
+library(dplyr)
+library(lubridate)
+library(foreign)
+library(modelsummary)
+library(car)
+library(Hmisc)
+library(plm)
+library(lmtest)
+
+data = read.csv('C:/Users/hetvi/Downloads/Final.csv')
+
+data <- data %>% subset(select=-c(Male, White))
+set.seed(123) # for reproducibility
+split <- sample.split(data$outcomeUnsuitableForSearch, SplitRatio = 0.7)
+training_set <- subset(data, split == TRUE)
+testing_set <- subset(data, split == FALSE)
+
+model <- glm(outcomeUnsuitableForSearch ~ ., data = training_set, family = binomial)
+summary(model)
+
+testmodel <- lm(outcomeUnsuitableForSearch ~ ., data=data)
+ld.vars <- attributes(alias(testmodel)$Complete)$dimnames[[1]]
+ld.vars
+vif(testmodel)
+testmodel
+
+## CHECK AUTOCORRELATION
+# H0: no autocorrelation -> p < 0.05, reject H0, we have serial correlation
+pbgtest(model)
+
+## CHECK HOMOSCEDASTICITY
+# H0: there is homoscedasticity -> p < 0.05, reject H0, we have heteroskedasticity
+bptest(outcomeUnsuitableForSearch ~., data=data, studentize=F)
+
+
+# ==> to mitigate both of these problems, we can use robust standard errors to
+# - ensure a correct output despite heteroskedasticity and autocorrelation.
+# This bypasses these problems but makes your results robust and reliable.
+coeftest(model, vcovHC(model, method="arellano"))
