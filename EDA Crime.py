@@ -247,13 +247,14 @@ df = pd.read_csv("CombinedFinal/metropolitan-outcomes-combined.csv")
 # plt.legend.remove()
 
 
-# df = pd.read_csv('C:/Users/hetvi/Downloads/dc2/Dashboard/metropolitan-street-combined.csv')
+df = pd.read_csv('C:/Users/hetvi/Downloads/dc2/Dashboard/metropolitan-street-combined.csv')
 
 # crime_count = df.groupby(['Month', 'Crime type']).size().reset_index(name='count')
 # print(crime_count)
 # crime_count_pivot = crime_count.pivot(index='Month', columns='Crime type', values='count').fillna(0)
 # print(len(df['Location'].unique()))
 # print(df['Location'].unique()[150:250])
+
 
 # print(df['Month'].unique())
 
