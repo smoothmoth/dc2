@@ -1,5 +1,7 @@
 This is the code you can run in Powershell to obtain the datafiles for the Metropolitan area (London) and it will delete the rest of the files that we do not need.
 
+####### You have to run it for all folders that you download so don’t forget to change main folder name########
+
 Code To Remove Unnecessary Files
 
 $MainFolder = "Add path name" # the location of the folder you downloaded
@@ -20,72 +22,15 @@ foreach ($Subfolder in $Subfolders) {
     }
 }
 
-
-You have to run it for all folders that you download so don’t forget to change main folder name
-
+############################ Main folders is the folder for each year ##########################################
 
 Code for Combining All Files
-
-For one Folder
-
-$MainFolder = "Path to folder"
-$OutputFolder = "Path where you want to create output folder with output folder name"
-
-# to store files into the tree types of files
-$FilesByType = @{
-    "metropolitan-outcomes" = @()
-    "metropolitan-stop-and-search" = @()
-    "metropolitan-street" = @()
-}
-
-# accessing the subfolders within the main folder
-$Subfolders = Get-ChildItem -Path $MainFolder -Directory
-
-foreach ($Subfolder in $Subfolders) {
-    # all csvs from each subfolder
-    $Files = Get-ChildItem -Path $Subfolder.FullName -Filter "*.csv" -File
-
-    # looping through each file and adding them to their respective type list
-    foreach ($File in $Files) {
-        # determine the type of the file using string matching
-        if ($File.Name -match ".*-metropolitan-outcomes\..*") {
-            $FilesByType["metropolitan-outcomes"] += $File
-        }
-        elseif ($File.Name -match ".*-metropolitan-stop-and-search\..*") {
-            $FilesByType["metropolitan-stop-and-search"] += $File
-        }
-        elseif ($File.Name -match ".*-metropolitan-street\..*") {
-            $FilesByType["metropolitan-street"] += $File
-        }
-    }
-}
-
-# creates the output directory if it doesn't exist
-if (-not (Test-Path -Path $OutputFolder)) {
-    New-Item -Path $OutputFolder -ItemType Directory | Out-Null
-}
-
-# combines the csv files for each type in the list
-foreach ($Type in $FilesByType.Keys) {
-    $CombinedFiles = $FilesByType[$Type]
-    if ($CombinedFiles.Count -gt 0) {
-        # Appends into one file
-        $CombinedFileName = Join-Path -Path $OutputFolder -ChildPath "$Type.csv"
-        $CombinedContent = foreach ($File in $CombinedFiles) {
-            Import-Csv -Path $File.FullName
-        }
-        # saving combined csv
-        $CombinedContent | Export-Csv -Path $CombinedFileName -NoTypeInformation -Append
-    }
-}
-
-
 
 # Define main folders
 $MainFolders = @(folder 1 path, folder 2 path)
 
 # Output folder
-$OutputFolder = "C:\Users\hetvi\Downloads\CombinedFinal"
+$OutputFolder = "ADD path to your output folder"
 
 
 $FilesByType = @{
@@ -139,7 +84,7 @@ foreach ($Type in $FilesByType.Keys) {
     }
 }
 
-
+############################# After combining them into one file for each year ##################################
 #Combine CSV's
 folder_path = "C:/Users/hetvi/Downloads/CombinedFinal"
 df = pd.read_csv("C:/Users/hetvi/Downloads/Combined/metropolitan-outcomes.csv")
