@@ -80,3 +80,4 @@ The file is split into 2 code sections that you need to run:
 
 ## R
 1. Run analysis_final.R for all statistical tests and analysis results.
+2. For logistic regression model F1 run Stop-Randomeness.ipynb
