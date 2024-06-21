@@ -1,7 +1,7 @@
 import pandas as pd
 
 def highest_x_proportion(chosen_measure, start_year, end_year, x):
-    df = pd.read_excel('DC2_data/PAS_T&Cdashboard_to Q3 23-24.xlsx', sheet_name='Borough')
+    df = pd.read_excel('DC2_data/PAS_T&Cdashboard_to Q3 23-24.xlsx', sheet_name='Borough') # insert the path to the original, publicly available PAS
 
     df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y')
 
@@ -16,7 +16,7 @@ def highest_x_proportion(chosen_measure, start_year, end_year, x):
     return lowest_x_boroughs
 
 def lowest_x_proportion(chosen_measure, start_year, end_year, x):
-    df = pd.read_excel('DC2_data/PAS_T&Cdashboard_to Q3 23-24.xlsx', sheet_name='Borough')
+    df = pd.read_excel('DC2_data/PAS_T&Cdashboard_to Q3 23-24.xlsx', sheet_name='Borough') # insert the path to the original, publicly available PAS
 
     df['Date'] = pd.to_datetime(df['Date'], format='%d/%m/%Y')
 
@@ -126,7 +126,7 @@ def bot_boroughs_avg_confidence(confidence_df, start_year, end_year, x):
     return sorted_df.head(x)
 
 
-df = pd.read_excel('DC2_data/PAS_T&Cdashboard_to Q3 23-24.xlsx', sheet_name='Borough')
+df = pd.read_excel('DC2_data/PAS_T&Cdashboard_to Q3 23-24.xlsx', sheet_name='Borough') # insert the path to the original, publicly available PAS
 confidence_df = calculate_confidence(df)
 
 top_boroughs = top_boroughs_avg_confidence(confidence_df, 2014, 2018, 5)

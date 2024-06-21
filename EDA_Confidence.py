@@ -223,7 +223,7 @@ def plot_bot_areas(csv_files, area):
 
 ward = 'ward_n'
 borough = 'C2'
-csv = ['DC2_data/pas_data_ward_level/PAS_ward_level_FY_15_17.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_17_18.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_18_19.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_19_20.csv']
+csv = ['DC2_data/pas_data_ward_level/PAS_ward_level_FY_15_17.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_17_18.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_18_19.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_19_20.csv'] # Insert paths to non-joined, ward-level PAS data
 start_month = 1
 start_year = 2015
 end_month = 12

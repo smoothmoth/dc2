@@ -22,7 +22,7 @@ def plot_line_graph(file_path, sheet_name):
 
         plt.show()
 
-file_path = 'DC2_data/PAS_T&Cdashboard_to Q3 23-24.xlsx'
+file_path = 'DC2_data/PAS_T&Cdashboard_to Q3 23-24.xlsx' # insert the path to the original, publicly available PAS
 sheet_name = 'PAS London Level'
 
 plot_line_graph(file_path, sheet_name)

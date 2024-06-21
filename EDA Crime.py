@@ -10,7 +10,7 @@ from collections import defaultdict
 
 ######################################### EDA  Outcomes ###############################################
 
-df = pd.read_csv("CombinedFinal/metropolitan-outcomes-combined.csv")
+df = pd.read_csv("D:\DC2_Output\metropolitan-outcomes.csv") # Insert the path to the outcomes file that you get after Powershell step 1 in the README
 # Initial Exploration
 # df.info()
 # print(df.count())
@@ -47,7 +47,7 @@ plt.show()
 df['Month'] = pd.to_datetime(df['Month'])
 df['Month'].value_counts().sort_index().plot(kind='line', figsize=(10, 6))
 plt.title("Number of Crimes Over Time")
-plt.xlabel("Month")
+plt.xlabel("Year")
 plt.ylabel("Number of Crimes")
 plt.show()
 
@@ -140,7 +140,7 @@ plt.show()
 
 # ####################################### EDA Street ####################################################
 
-df2 = pd.read_csv('/CombinedFinal/metropolitan-street-combined.csv')
+df2 = pd.read_csv("D:\DC2_Output\metropolitan-street-combined.csv")  # Insert the path to the streets file that you get after Powershell step 1 in the README
 ## Inital exploration of data types
 # df2.info()
 # print(df2.count())

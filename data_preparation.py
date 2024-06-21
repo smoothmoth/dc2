@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from typing import List, Tuple, Dict
-from police_api import PoliceAPI
 import re
 import geopandas as gpd
 import json
@@ -61,52 +60,6 @@ def aggregate_column_counts(df: pd.DataFrame, column_names: List[str], new_colum
     df[new_column_name] = subset.aggregate('sum', axis=1)
     return df
 
-
-def add_neighbourhoods(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Adds columns for neighbourhood name and id
-    :param df: DataFrame on which to perform the operation
-    :return: Original dataframe with two additional columns: one for neighbourhood ID, one for neighbourhood name
-    """
-    api = PoliceAPI()
-
-    def get_neighbour_id(lat, lon):
-        if lat is None or lon is None:
-            return None
-        else:
-            return api.locate_neighbourhood(lat=lat, lng=lon).id
-
-    def get_neighbour_name(lat, lon):
-        if lat is None or lon is None:
-            return None
-        else:
-            return api.locate_neighbourhood(lat=lat, lng=lon).name
-
-    dct_index = {}
-    dct_name = {}
-    df_temp = df.copy()
-    df_temp["Cords"] = df_temp[['Latitude', 'Longitude']].apply(tuple, axis=1)
-    print("Tuples complete")
-    cnt = 0
-    uniq = df_temp["Cords"].unique()
-    print(len(uniq))
-    print(len(df["LSOA code"].unique()))
-    for i in uniq:
-        dct_index[i] = get_neighbour_id(i[0], i[1])
-        # dct_name[i] = get_neighbour_name(i[0], i[1])
-        cnt += 1
-        print(cnt)
-    print(dct_index)
-    # print(dct_name)
-    df_temp["Neighbourhood ID"] = df_temp["Cords"].map(dct_index)
-    print('Index map complete')
-    # df_temp["Neighbourhood name"] = df_temp["Cords"].map(dct_name)
-    # print('Name map complete')
-    df["Neighbourhood ID"] = df_temp["Neighbourhood ID"]
-    # df["Neighbourhood name"] = df_temp["Neighbourhood name"]
-
-
-    return df
 
 
 def add_wards_old(df: pd.DataFrame, path_to_PAS: str) -> pd.DataFrame:
@@ -579,16 +532,39 @@ def further_clean_PAS(df_PAS: pd.DataFrame, recode: bool = True) -> pd.DataFrame
             'Not at all informed': 1, 
             'Very well informed': 3,
             }
+        
+        question_mappers_dct['Q65'] = {
+            'At least daily': 1,
+            'At least weekly': 1/7,
+            'At least fortnighty': 1/14,
+            'At least monthly': 1/30,
+            'Less often': 1/365,
+            'Never': 0,
+            'Don\'t know': np.nan,
+            'Refused': np.nan,
+            'Not Asked': np.nan
+        }
+        for q in ['Q79J', 'Q79E']: 
+            question_mappers_dct[q]= {
+                '7 Very well': 7,
+                '1 Not at all well': 1,
+                "Don't know": np.nan,
+                "Refused": np.nan,
+                "Not Asked": np.nan
+            }
+
+        
+
 
         for column in question_mappers_dct:
             df_PAS[column] = df_PAS[column].map(question_mappers_dct[column])
 
     df_out = df_PAS[['ward_n', 'C2','Month', 'Year', 'Q1', 'Q13', 'Q60', 'Q61', 'Q62A', 'Q62C', 'Q62F', 'Q62TG', 'A121',
-       'Q131', 'Q133', 'NQ135BD', 'NQ135BH']]
+       'Q131', 'Q133', 'NQ135BD', 'NQ135BH', 'Q65',	'Q79E',	'Q79J',	'Q136r', 'NQ147r', 'XQ135r']]
     
     if recode:
         for q in ['Q1', 'Q13', 'Q60', 'Q61', 'Q62A', 'Q62C', 'Q62F', 'Q62TG', 'A121',
-        'Q131', 'Q133', 'NQ135BD', 'NQ135BH']:
+        'Q131', 'Q133', 'NQ135BD', 'NQ135BH', 'Q79J', 'Q79E', 'Q65']:
             df_out[q] = df_out[["ward_n", q]].groupby("ward_n").transform(lambda x: x.fillna(x.mean()))
 
         weights = {
@@ -616,11 +592,11 @@ def further_clean_PAS(df_PAS: pd.DataFrame, recode: bool = True) -> pd.DataFrame
 
         df_out['Confidence'] = df_out.apply(calculate_confidence, axis=1)
 
+    print(df_out.columns)
     df_out = df_out.rename(columns=
         {
             'C2':'Borough name', 
             'ward_n': 'Ward name', 
-            #'ward': 'Ward code',
             'Q1': 'qLivedInAreaForYears', 
             'Q13':'qWorriedAboutCrimeInArea', 
             'Q60':'qGoodJobLocal', 
@@ -633,10 +609,28 @@ def further_clean_PAS(df_PAS: pd.DataFrame, recode: bool = True) -> pd.DataFrame
             'Q131': 'qInformedLocal', 
             'Q133':'qInformedLondon', 
             'NQ135BD': 'Trust', 
-            'NQ135BH': 'qPoliceHeldAccountable'
+            'NQ135BH': 'qPoliceHeldAccountable',
+            "NQ147r": 'respondentEthnicity',
+            "Q136r": "respondentAge",
+            "XQ135r": "respondentGender",
+            "Q65":'qHowOftenSeenPatrols',
+            "Q79E":'qPoliceSupportsVictimsAndWitnesses',
+            "Q79J":'qPoliceRespondsToViolenceAgainstWomen'
             }
     )
-
+    
+    for column in ["respondentEthnicity", "respondentAge", "respondentGender"]:
+            renamer = {}
+            one_hot_encoded = pd.get_dummies(df_out[column])
+            one_hot_encoded = one_hot_encoded.astype(int)
+            df_out = pd.concat([df_out, one_hot_encoded], axis=1)
+            for i in one_hot_encoded.columns:
+                renamer[i] = f"{column}_{i}"
+            df_out = df_out.rename(columns=renamer).copy()
+    df_out = df_out.drop(columns=["respondentEthnicity", "respondentAge", "respondentGender"])
+    df_out = aggregate_column_counts(df_out, ['respondentEthnicity_White British','respondentEthnicity_White Other'], 'respondentEthnicity_White')
+    df_out = aggregate_column_counts(df_out, ['respondentEthnicity_Mixed', 'respondentEthnicity_Other'], 'respondentEthnicity_Others')
+    df_out = df_out.drop(columns=['respondentEthnicity_White British','respondentEthnicity_White Other','respondentEthnicity_Mixed', 'respondentEthnicity_Other'])
     return df_out
 
 
@@ -664,12 +658,23 @@ def aggregate_PAS_data(clean_PAS: pd.DataFrame, confidence: bool = True) -> Dict
         'qInformedLondon',
         'Trust',
         'qPoliceHeldAccountable',
+        'qHowOftenSeenPatrols',
+        'qPoliceSupportsVictimsAndWitnesses',
+        'qPoliceRespondsToViolenceAgainstWomen'
         ]:
         mapper[q] = ['mean']
     if confidence:
         mapper['Confidence'] = ['mean']
 
-
+    for q in [
+        'respondentEthnicity_Asian', 'respondentEthnicity_Black',
+       'respondentAge_16-24', 'respondentAge_25-34', 'respondentAge_35-44',
+       'respondentAge_45-54', 'respondentAge_55-64',
+       'respondentAge_65 or over', 'respondentGender_Female',
+       'respondentGender_Male', 'respondentGender_Other',
+       'respondentEthnicity_White', 'respondentEthnicity_Others'
+    ]:
+        mapper[q] = ['sum']
     df1 = clean_PAS.groupby(['Year', "Borough name"]).agg(mapper).reset_index()
     df1.columns = [col_name[0] for col_name in df1.columns]
     outdct['PAS_year_borough'] = df1.copy()
@@ -692,6 +697,14 @@ def aggregate_PAS_data(clean_PAS: pd.DataFrame, confidence: bool = True) -> Dict
 
     return outdct
 
+
+def save_aggregated_PAS(clean_PAS:pd.DataFrame):
+    """
+    Saves the aggregated PAS dataframes.
+    """
+    dct: Dict = aggregate_PAS_data(clean_PAS)
+    for key, value in dct.items():
+        value.to_csv(f"{key}.csv")
 
 
 def join_data(
@@ -792,12 +805,22 @@ def prepare_in_depth_PAS_categories(
         'qInformedLondon',
         'Trust',
         'qPoliceHeldAccountable',
+        'qHowOftenSeenPatrols',
+        'qPoliceSupportsVictimsAndWitnesses',
+        'qPoliceRespondsToViolenceAgainstWomen',
         ]:
         aggr_mapper[q] = ['mean']
-
+    for q in [
+        'respondentEthnicity_Asian','respondentEthnicity_Black',
+        'respondentAge_16-24','respondentAge_25-34','respondentAge_35-44',
+        'respondentAge_45-54','respondentAge_55-64','respondentAge_65 or over',
+        'respondentGender_Female','respondentGender_Male','respondentGender_Other',
+        'respondentEthnicity_White','respondentEthnicity_Others'
+    ]:
+        aggr_mapper[q] = ['sum']
     aggr_mapper['Year'] = ['first']
     aggr_mapper['Borough name'] = ['first']
-
+    
     # Recoding
     question_mappers_dct = {}
 
@@ -860,6 +883,27 @@ def prepare_in_depth_PAS_categories(
         'Very well informed': 3,
         }
 
+    question_mappers_dct['qHowOftenSeenPatrols'] = {
+            'At least daily': 1,
+            'At least weekly': 1/7,
+            'At least fortnighty': 1/14,
+            'At least monthly': 1/30,
+            'Less often': 1/365,
+            'Never': 0,
+            'Don\'t know': np.nan,
+            'Refused': np.nan,
+            'Not Asked': np.nan
+        }
+    for q in ['qPoliceSupportsVictimsAndWitnesses',
+        'qPoliceRespondsToViolenceAgainstWomen']: 
+        question_mappers_dct[q]= {
+            '7 Very well': 7,
+            '1 Not at all well': 1,
+            "Don't know": np.nan,
+            "Refused": np.nan,
+            "Not Asked": np.nan
+        }
+
     for column in question_mappers_dct:
         df[column] = df[column].map(question_mappers_dct[column])
     
@@ -875,7 +919,10 @@ def prepare_in_depth_PAS_categories(
         'qInformedLocal',
         'qInformedLondon',
         'Trust',
-        'qPoliceHeldAccountable']:
+        'qPoliceHeldAccountable',
+        'qPoliceSupportsVictimsAndWitnesses',
+        'qPoliceRespondsToViolenceAgainstWomen',
+        'qHowOftenSeenPatrols']:
         df[q] = df[["Ward name", q]].groupby("Ward name").transform(lambda x: x.fillna(x.mean()))
 
     # Defining confidence
@@ -906,27 +953,103 @@ def prepare_in_depth_PAS_categories(
     aggr_mapper['Confidence'] = ['mean']
     df4 = df.groupby(['Month', "Ward name"]).agg(aggr_mapper).reset_index()
     df4.columns = [col_name[0] for col_name in df4.columns]
-    
 
     out = join_data(aggregated_street, aggregated_search, df4, how_time, how_space, recode_to_period_PAS=False)
-
+    # print(out)
     return out
 
 
+def prepare_data_for_logistic_regression() -> None:
+    """
+    Prepares and saves the data for logistic regression analysis of fairness of stop-and-search.
+    """
+    columns_to_keep = ['Asian', 'Black', 'White', 'outcomeUnsuitableForSearch', 'Female', 'Male', 'Year', 'Borough name', 'Other.1', 'Other']
+    df = pd.read_excel("ethnic-group-by-borough.xlsx")
+    df.dropna(subset=['Code'], inplace=True)
+    df2 = pd.read_csv("prepared_search.csv", usecols=columns_to_keep)
+    df.dropna(subset=['Code'], inplace=True)
+    london_boroughs = ['Barking and Dagenham', 'Barnet', 'Bexley', 'Brent', 'Bromley', 'Camden', 'Croydon', 'Ealing','Enfield', 'Greenwich', 'Hackney', 'Hammersmith and Fulham', 'Haringey', 'Harrow', 'Havering','Hillingdon', 'Hounslow', 'Islington', 'Kensington and Chelsea', 'Kingston upon Thames', 'Lambeth', 'Lewisham', 'Merton', 'Newham', 'Redbridge', 'Richmond upon Thames', 'Southwark', 'Sutton', 'Tower Hamlets','Waltham Forest', 'Wandsworth', 'Westminster']
+    london_boroughs = [borough.lower() for borough in london_boroughs]
+    df = df[df['Area'].str.lower().isin(london_boroughs)]
+    df.rename(columns={'Number': 'White_population', 'Unnamed: 3': 'Asian_population', 'Unnamed: 4': 'Black_population', 'Unnamed: 5': 'Other_population', 'Unnamed: 6' : 'Total_population', 'Area': 'Borough', 'Unnamed: 13': 'Year'}, inplace=True)
+    columns_keep = ['Code', 'Borough', 'White_population', 'Asian_population', 'Black_population', 'Other_population', 'Total_population', 'Year']
+    df = df[columns_keep]
+    df.drop(columns=['Code'], inplace=True)
+    df.dropna(how='all', inplace=True)
+    columns_to_convert = ['White_population', 'Black_population', 'Other_population', 'Asian_population']
+    df[columns_to_convert] = df[columns_to_convert].astype(int)
+    # df[['Total_population']] = df[['Total_population']].astype(int)
+    for col in columns_to_convert:
+        df[col] = df[col] / df['Total_population']
+
+    df.drop(columns=['Total_population', 'Other_population'], inplace=True) 
+
+    df2.rename(columns={'Borough name': 'Borough', 'Other': 'Other_Gender', 'Other.1': 'Other_Ethnicity'}, inplace=True)
+    df['Borough'] = df['Borough'].str.lower()
+    df2['Borough'] = df2['Borough'].str.lower()
+    df['Year'] = df['Year'].astype(int)
+    df2['Year'] = df2['Year'].astype(int)
+    merged_df = pd.merge(df2, df, on=['Borough', 'Year'], how='inner')
+    merged_df= merged_df.drop(columns=['Year', 'Borough'])
+    merged_df.to_csv('Final.csv', index=False)
 
 
 
-# aggregated_PAS = pd.read_csv('PAS_month_ward.csv')
-street = pd.read_csv('street_month_ward.csv')
-search = pd.read_csv('search_month_ward.csv')
 
-# x = join_data(street, search, aggregated_PAS, how_space="Ward name", how_time="Month").drop(columns = ['Unnamed: 0_x'])
-# x.to_csv('aggregation_attempt.csv')
+def main_1(path_to_joined_street: str, path_to_joined_search: str, path_to_ward: str, path_to_borough: str) -> None:
+    """
+    Performs the data preparation for the project (1).
+    :param path_to_joined_street: path to the file containing the joined crime data
+    :param path_to_joined_street: path to the file containing the joined stop_and_search data
+    :param path_to_ward: path to the file containing the wards geojson data
+    :param path_to_borough: path to the file containing the borough geojson data
+    """
+    # Cleaning police data
+    df_search = pd.read_csv(path_to_joined_search)
+    df_street = pd.read_csv(path_to_joined_street)
+    prepared_street, prepared_search = prepare_police_uk_crime_datasets(df_street, df_search, path_to_ward, path_to_borough)
+    prepared_street.to_csv('prepared_street.csv')
+    prepared_search.to_csv('prepared_search.csv')
 
-PAS = pd.read_csv('PAS_new.csv')
 
-prepare_in_depth_PAS_categories(street, search, PAS, ["qTreatEveryoneFairly", 
-                                                      "qGoodJobLondon", 
-                                                      "qPoliceHeldAccountable",
-                                                      "qReliedOnToBeThere",
-                                                      "qConfidentThatStopAndSearchFair"]).to_csv('experiment.csv')
+def main_2(path_to_econ: str, path_to_jobs: str) -> None:
+    """
+    Performs the data preparation for the project (2).
+    :param path_to_econ: path to the file containing the pay data 
+    :param path_to_jobs: path to the file containing the jobs data 
+    """
+    prepared_street = pd.read_csv('prepared_street.csv')
+    prepared_search = pd.read_csv('prepared_search.csv')
+    save_aggregated_data_to_csv(prepared_street, prepared_search, path_to_econ, path_to_jobs)
+
+
+def main_3(path_to_joined_PAS: str) -> None:
+    """
+    Performs the data preparation for the project (4).
+    :param path_to_joined_PAS: path to the file containing joined PAS data 
+    """
+    PAS = pd.read_csv(path_to_joined_PAS)
+    clean_PAS = further_clean_PAS(PAS)
+    save_aggregated_PAS(clean_PAS)
+
+
+def main_4() -> None:
+    """
+    Performs the data preparation for the project (5).
+    """
+    street_agg = pd.read_csv('street_month_ward.csv')
+    search_agg = pd.read_csv('search_month_ward.csv')
+    PAS_agg = pd.read_csv('PAS_month_ward.csv')
+
+    all_joined = join_data(street_agg, search_agg, PAS_agg)
+    all_joined.to_csv('all_joined.csv')
+
+    x = prepare_in_depth_PAS_categories(street_agg, search_agg, PAS_agg)
+    x.to_csv('PAS_in_depth.csv')
+
+
+
+
+# prepare_data_for_logistic_regression()
+
+

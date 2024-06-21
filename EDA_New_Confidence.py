@@ -104,6 +104,6 @@ ward = 'ward_n'
 borough = 'C2'
 borough_2021 = 'Borough'
 neighbourhood = 'BOROUGHNEIGHBOURHOOD'
-csv = ['DC2_data/pas_data_ward_level/PAS_ward_level_FY_15_17.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_17_18.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_18_19.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_19_20.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_20_21.csv']
+csv = ['DC2_data/pas_data_ward_level/PAS_ward_level_FY_15_17.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_17_18.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_18_19.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_19_20.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_20_21.csv'] # Insert paths to non-joined, ward-level PAS data
 
 print(average_confidence_over_time_spans(csv, neighbourhood))

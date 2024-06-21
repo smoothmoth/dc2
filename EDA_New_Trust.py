@@ -48,7 +48,7 @@ def average_mps_over_time_spans(csv_files, area):
     return avg_mps
 
 
-csv_files = ['DC2_data/pas_data_ward_level/PAS_ward_level_FY_15_17.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_17_18.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_18_19.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_19_20.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_20_21.csv']
+csv_files = ['DC2_data/pas_data_ward_level/PAS_ward_level_FY_15_17.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_17_18.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_18_19.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_19_20.csv', 'DC2_data/pas_data_ward_level/PAS_ward_level_FY_20_21.csv'] # Insert paths to non-joined, ward-level PAS data
 ward = 'ward_n'
 borough = 'C2'
 borough_2021 = 'Borough'
