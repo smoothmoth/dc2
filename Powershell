@@ -22,7 +22,7 @@ foreach ($Subfolder in $Subfolders) {
     }
 }
 
-############################ Main folders is the folder for each year ##########################################
+############################ Main folders is the folder for each year ########################################
 
 Code for Combining All Files
 
